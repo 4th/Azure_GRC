@@ -1,0 +1,103 @@
+rule_id: kpi_limits
+version: 1.0.0
+title: KPI Guardrails
+description: Enforce KPI thresholds (e.g., latency p95, accuracy) with warning bands.
+engine_op: kpi_thresholds
+metadata:
+  owner: Fourth Industrial Systems
+  category: ops
+  tags:
+  - kpi
+  - slo
+  last_reviewed: '2025-11-11'
+inputs:
+  required_evidence:
+  - type: blob_uri
+    pattern: metrics/kpi/*.json
+  params:
+    thresholds:
+      latency_p95_ms: 500
+      accuracy_min: 0.9
+    warn_ratio: 0.9
+outputs:
+  pass_criteria: LATENCY_P95_MS <= thresholds.latency_p95_ms and ACCURACY >= thresholds.accuracy_min
+  signals:
+  - LATENCY_P95_MS
+  - ACCURACY
+  - WARN
+remediation:
+  playbook: kpi_tuning@v1
+  guidance: Scale service, update prompts/features, retrain to lift accuracy.
+rationale:
+  business_value: Reduces regulatory, ethical, and operational risk; improves trust
+    and audit readiness.
+  threats_mitigated:
+  - Regulatory non-compliance
+  - Data leakage
+  - Unfair outcomes
+  - Service disruptions
+severity_mapping:
+  pass:
+    severity: info
+    action: record
+  warn:
+    severity: medium
+    action: monitor_and_plan
+  fail:
+    severity: high
+    action: remediate_or_block
+scoring:
+  weight_default: 0.05
+  calculation: 1.0 for pass; 0.5 for warn; 0.0 for fail
+  aggregation: weighted_mean_across_controls
+exemptions:
+  allowed: true
+  policy: Temporary exemptions require risk acceptance and expiration date.
+  required_approvals:
+  - Product Owner
+  - GRC Lead
+  max_duration_days: 90
+  ticket_system: Jira
+audit:
+  record_fields:
+  - control_id
+  - rule_id
+  - status
+  - rationale
+  - signals
+  - evidence_refs
+  - timestamp
+  - actor
+  retention_days: 3650
+hitl:
+  enabled: true
+  channels:
+  - Teams
+  - Jira
+  sla_hours: 24
+  override_requires_reason: true
+alerts:
+  routes:
+  - email:grc@4th.is
+  - teams:#grc-alerts
+  dedup_window_minutes: 60
+evaluation:
+  logic_notes: Engine computes signals from evidence; evaluates pass_criteria; maps
+    to status; emits Finding with signals and remediation.
+  pseudocode:
+  - signals = compute_signals(evidence, params)
+  - status = evaluate(pass_criteria, signals, params)
+  - emit_finding(status, rationale, signals, remediation)
+evidence_schemas:
+  blob_uri.json:
+    hint: JSON array or object with fields referenced by the rule (see signals)
+  inline.json:
+    hint: Direct JSON payload provided by agent/evaluator
+examples:
+  good: All metrics within thresholds; complete artifacts; no violations found.
+  bad: Missing audit logs and TLS <1.2 on one endpoint; non-allowlisted model detected.
+risk_context:
+  impact: SLO breaches degrade user trust
+  likelihood: Medium
+signals_details:
+  WARN: True if approaching thresholds

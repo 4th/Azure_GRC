@@ -1,0 +1,66 @@
+# --- Version control ---
+.git
+.gitignore
+
+# --- Python virtual environments ---
+.venv/
+env/
+venv/
+
+# --- Python cache ---
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache/
+.pytest_cache/
+.tox/
+
+# --- IDE / Editor files ---
+.vscode/
+.idea/
+*.iml
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Build outputs ---
+dist/
+build/
+*.egg-info/
+site/
+
+# --- Logs ---
+*.log
+
+# --- Environment / secrets ---
+.env
+*.env
+.env.*
+secrets.json
+
+# --- Docs build artifacts ---
+mkdocs.yml
+docs/
+site/
+
+# --- Node / JS (in case future UI components are added) ---
+node_modules/
+npm-debug.log
+
+# --- Temporary backups ---
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# --- CI/CD ---
+.github/
+
+# --- Project-specific ignore patterns ---
+# Avoid copying repository root files when building service images
+README.md
+LICENSE
+ 

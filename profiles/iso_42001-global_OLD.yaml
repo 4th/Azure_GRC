@@ -1,0 +1,180 @@
+# =======================================================================
+#  policies/profiles/iso_42001-global.yaml — ISO/IEC 42001 AIMS Profile (Global)
+# -----------------------------------------------------------------------
+# Purpose
+#   Compose reusable rule modules to align your Agentic AI program with
+#   ISO/IEC 42001 (AI Management System). This is a global profile with
+#   neutral defaults; add region overlays for stricter jurisdictions (EU, US).
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Rule modules listed under `includes:` live in ../rules/*.yaml.
+#   - Parameters reflect AIMS requirements: governance, risk, lifecycle,
+#     performance evaluation, improvement, and documentation.
+#   - Use with your PolicyLoader or port to OPA/Rego later.
+# =======================================================================
+
+profile: ISO_42001_GLOBAL
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_6eefd7c0f4
+  # --- Governance & documentation (AIMS context) ---
+  policy_enforcement_level: "strict"
+  allow_experimental_models: false
+  model_catalog_required: true
+  tool_allowlist_required: true
+  change_ticket_required: true
+  aims_scope_statement_required: true          # require documented scope/context
+  stakeholder_register_required: true          # maintain stakeholder mapping
+
+  # --- Context & data (global defaults, add EU/US overlays) ---
+  require_context_metadata: true
+  allowed_domains: ["healthcare", "finance", "public", "generic"]
+  pii_allowed: false
+  data_residency_region: "global"             # set region in overlays (eu, us, apac)
+  cross_border_transfer: true                 # allowed with safeguards (override in GDPR profile)
+  dpa_required_for_processors: true           # require DPAs with vendors/processors
+
+  # --- Risk & performance evaluation ---
+  risk_cap: 0.60                              # slightly tighter than NIST profile
+  bias_threshold: 0.15
+  explainability_score_min: 0.75
+  token_cap: 45000
+  cost_cap_usd: 9.00
+  latency_target_ms: 1800
+  error_rate_max: 0.03
+
+  # --- Monitoring, improvement, security ---
+  log_retention_days: 180
+  data_retention_days: 30
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  retrain_cycle_days: 120                     # ISO 42001 emphasizes planned cycles
+  evaluation_interval_days: 30
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true        # CAPA (Corrective & Preventive Actions)
+  availability_target_pct: 99.5
+
+  # --- Region / legal ---
+  jurisdiction: "global"
+  regulatory_scope: ["ISO/IEC 42001", "ISO/IEC 27001 (reference)", "GDPR (reference)"]
+
+  # ---------------- Additional structured knobs ----------------
+  risk_bands: &risk_bands_9d843e5ec9
+    low: {max: 0.35}
+    medium: {min: 0.35, max: 0.60}
+    high: {min: 0.60}
+
+  hil_policy: &hil_policy_808889bc1d
+    require_for:
+    - "input.kpis.risk_score >= 0.35"         # medium or higher risk
+    - "input.args.get('contains_pii', False) == True"
+    - "input.intent in ['approve_payment','bulk_export','delete_record']"
+    approver_roles: ["compliance_officer", "risk_manager"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_0b65286cb2
+    token_budget_exceeded: "moderate"
+    model_not_approved: "high"
+    pii_not_allowed_for_this_profile: "critical"
+    network_domain_not_allowlisted: "high"
+    transparency_missing: "moderate"
+    encryption_not_enforced: "critical"
+    cross_border_blocked: "high"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "capa_ticket_id"                         # capture if nonconformity opened
+
+  # --- Supplier & documentation expectations (AIMS) ---
+  supplier_due_diligence_required: true
+  supplier_certifications_expected: ["ISO/IEC 27001", "SOC 2"]
+  document_control_required: true            # versioned SOPs, policies
+  training_program_required: true            # roles must complete AIMS training
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_a863808850
+  disclosure_banner: >
+    This system operates under an ISO/IEC 42001 AI Management System profile.
+    Outputs are governed by documented objectives, risk controls, and
+    continuous improvement practices.
+  escalation_contact: "aims@4th.is"
+  audit_profile_tag: "ISO_42001_GLOBAL"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# --------------------------- Profile checklists --------------------------
+checklists: &checklists_4cdb63921f
+  aims_requirements:
+    scope_document_present: true
+    roles_and_responsibilities_defined: true
+    risk_register_maintained: true
+    objectives_and_kpis_defined: true
+    internal_audits_scheduled: true
+    management_review_cadence_quarterly: true
+  supplier_requirements:
+    due_diligence_completed: true
+    dpa_signed_when_applicable: true
+  training_requirements:
+    annual_training_required: true
+    role_based_training_tracked: true
+
+# ---------------------- AIMS crosswalk (informative) ---------------------
+aims_focus:
+  context_of_organization:
+  - "Defined scope, stakeholders, and processes"
+  leadership:
+  - "Roles, responsibilities, policy commitments"
+  planning:
+  - "Risk & opportunities, objectives & plans"
+  support:
+  - "Competence, awareness, documented information"
+  operation:
+  - "Operational controls, supplier management"
+  performance_evaluation:
+  - "Monitoring, measurement, internal audit, management review"
+  improvement:
+  - "Nonconformity and CAPA"
+anchors:
+  risk_bands_9d843e5ec9: *risk_bands_9d843e5ec9
+  hil_policy_808889bc1d: *hil_policy_808889bc1d
+  severity_map_0b65286cb2: *severity_map_0b65286cb2
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_6eefd7c0f4: *params_6eefd7c0f4
+  obligations_a863808850: *obligations_a863808850
+  checklists_4cdb63921f: *checklists_4cdb63921f

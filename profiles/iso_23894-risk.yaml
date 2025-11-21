@@ -1,0 +1,161 @@
+# =======================================================================
+#  policies/profiles/iso_23894-risk.yaml — ISO/IEC 23894 AI Risk Management
+# -----------------------------------------------------------------------
+# Purpose
+#   Align agent behavior and governance with ISO/IEC 23894 guidance on
+#   AI risk management across the lifecycle: context, assessment, treatment,
+#   acceptance, communication, and monitoring/review.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - Parameters emphasize structured risk assessment, metrics, appetite,
+#     monitoring cadence, and CAPA (corrective actions).
+# =======================================================================
+
+profile: ISO_23894_RISK
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_3a6dc361fd
+  # Risk context & appetite
+  policy_enforcement_level: "strict"
+  risk_appetite_statement_required: true          # require documented appetite/tolerance
+  risk_register_required: true                    # maintain a register per system
+  stakeholder_risk_criteria_defined: true         # capture criteria with stakeholders
+  require_context_metadata: true
+  human_review_required: true                     # escalate above certain risk thresholds
+
+  # Quant/qual risk metrics
+  risk_cap: 0.60                                  # max composite risk allowed
+  bias_threshold: 0.15
+  explainability_score_min: 0.72
+  error_rate_max: 0.03
+  latency_target_ms: 1800
+  availability_target_pct: 99.5
+
+  # KPI & cost governance
+  token_cap: 42000
+  cost_cap_usd: 8.50
+
+  # Privacy & security
+  pii_allowed: false
+  dpa_required_for_processors: true
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  data_residency_region: "global"
+  cross_border_transfer: true                     # allowed with safeguards
+  data_retention_days: 30
+  log_retention_days: 180
+
+  # Lifecycle & monitoring
+  evaluation_interval_days: 30                    # recurring evaluation cadence
+  retrain_cycle_days: 120
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true            # open CAPA on nonconformities
+
+  # Structured helpers
+  risk_bands: &risk_bands_9d843e5ec9
+    low: {max: 0.35}
+    medium: {min: 0.35, max: 0.60}
+    high: {min: 0.60}
+
+  hil_policy: &hil_policy_64f960e986
+    require_for:
+    - "input.kpis.risk_score >= 0.35"
+    - "input.args.get('contains_pii', False) == True"
+    - "input.intent in ['approve_payment','bulk_export','delete_record']"
+    approver_roles: ["risk_manager", "compliance_officer"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_8bd4b5f2ba
+    token_budget_exceeded: "moderate"
+    model_not_approved: "high"
+    pii_not_allowed_for_this_profile: "critical"
+    transparency_missing: "moderate"
+    encryption_not_enforced: "critical"
+    risk_cap_exceeded: "high"
+
+  incident_thresholds: &incident_thresholds_073e016084
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  # Evidence schema hints
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "risk_register_id"                            # link to risk item if applicable
+
+  jurisdiction: "global"
+  regulatory_scope: ["ISO/IEC 23894", "ISO/IEC 42001 (reference)"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_4adef8e678
+  disclosure_banner: >
+    This system operates under an ISO/IEC 23894 AI risk management profile.
+    It enforces documented risk criteria, continuous monitoring, and
+    corrective actions for nonconformities.
+  escalation_contact: "ai-risk@4th.is"
+  audit_profile_tag: "ISO_23894_RISK"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_af80766ff9
+  risk_management_basics:
+    risk_appetite_statement_documented: true
+    risk_register_maintained: true
+    stakeholder_risk_criteria_defined: true
+    evaluation_schedule_defined: true
+    nonconformity_capa_process_defined: true
+  monitoring_and_review:
+    kpi_thresholds_configured: true
+    dashboards_published: true
+    sentinel_alerts_configured: true
+
+# ----------------------- ISO 23894 crosswalk (informative) ---------------
+iso_23894_focus:
+  risk_management_process:
+  - "Establish context (scope, objectives, stakeholders)"
+  - "Risk identification, analysis, evaluation"
+  - "Risk treatment & acceptance criteria"
+  - "Risk communication & consultation"
+  - "Monitoring, review, recording & reporting"
+anchors:
+  risk_bands_9d843e5ec9: *risk_bands_9d843e5ec9
+  hil_policy_64f960e986: *hil_policy_64f960e986
+  severity_map_8bd4b5f2ba: *severity_map_8bd4b5f2ba
+  incident_thresholds_073e016084: *incident_thresholds_073e016084
+  params_3a6dc361fd: *params_3a6dc361fd
+  obligations_4adef8e678: *obligations_4adef8e678
+  checklists_af80766ff9: *checklists_af80766ff9

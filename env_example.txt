@@ -1,0 +1,51 @@
+# 4th.GRC™ — Environment Configuration Example
+# Copy this file to `.env` and adjust for your Azure environment.
+
+# ============================
+# General Settings
+# ============================
+APP_NAME=4th.GRC
+ENV=development
+LOG_LEVEL=info
+PORT=8080
+
+# ============================
+# Policy Engine Service
+# ============================
+POLICYENGINE_URL=http://localhost:8080/v1/evaluate
+POLICYENGINE_API_KEY=changeme-secret-key
+
+# ============================
+# Azure Configuration
+# ============================
+AZURE_SUBSCRIPTION_ID=<your_subscription_id>
+AZURE_TENANT_ID=<your_tenant_id>
+AZURE_CLIENT_ID=<your_client_id>
+AZURE_CLIENT_SECRET=<your_client_secret>
+
+AZURE_STORAGE_ACCOUNT=<your_storage_account>
+AZURE_STORAGE_CONTAINER=policy-data
+AZURE_KEYVAULT_URI=https://<your-keyvault-name>.vault.azure.net/
+AZURE_COSMOS_URI=https://<your-cosmos-account>.documents.azure.com:443/
+AZURE_COSMOS_KEY=<your_cosmos_primary_key>
+
+# ============================
+# Telemetry / Monitoring
+# ============================
+APPINSIGHTS_CONNECTION_STRING=InstrumentationKey=<your-key>
+LOG_ANALYTICS_WORKSPACE_ID=<workspace_id>
+LOG_ANALYTICS_SHARED_KEY=<workspace_key>
+
+# ============================
+# Agent & Evidence Tools
+# ============================
+PURVIEW_ACCOUNT_NAME=<your_purview_account>
+SERVICE_BUS_NAMESPACE=<your_service_bus>
+EVENT_GRID_TOPIC=<your_event_grid_topic>
+
+# ============================
+# Optional Integrations
+# ============================
+TEAMS_WEBHOOK_URL=<teams_webhook>
+JIRA_API_URL=<jira_base_url>
+JIRA_API_TOKEN=<jira_token>

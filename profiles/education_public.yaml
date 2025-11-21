@@ -1,0 +1,205 @@
+# =======================================================================
+#  policies/profiles/education_public.yaml — Education & Public Sector Overlay
+# -----------------------------------------------------------------------
+# Purpose
+#   Sector profile for K‑12, higher‑ed, and public sector workloads.
+#   References: FERPA (US), COPPA (US children’s privacy), state student
+#   privacy laws, UNESCO AI Ethics, EdTech Privacy Pledge 2.0, open‑records
+#   requirements (FOIA/State PRA), accessibility (WCAG/Section 508), and
+#   procurement/third‑party oversight.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - Tune child‑data safeguards and public‑records handling per jurisdiction.
+# =======================================================================
+
+profile: EDUCATION_PUBLIC_SECTOR
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_c0a67f1b6b
+  # --- Sector posture ---
+  policy_enforcement_level: "strict"
+  public_records_applicability: true                 # FOIA/State PRA
+  accessibility_compliance_required: true            # WCAG 2.1 AA / Section 508
+  student_data_profile_enabled: true
+  research_data_profile_enabled: true
+
+  # --- Student data (FERPA / state laws) ---
+  ferpa_applicable: true
+  directory_information_limited: true
+  parental_rights_workflows_configured: true         # inspect/correct/delete where required
+  school_official_exception_controls: true           # audit access under FERPA exception
+  data_minimization_required: true
+  deidentification_preferred_for_analytics: true
+  pii_allowed: true
+  children_processing_default_disallowed: true       # default DENY for <13 unless COPPA-compliant
+  parental_consent_required_under_13: true           # COPPA
+  student_consent_required_over_13: true             # as applicable (HS/college policies)
+  age_gate_enabled: true
+
+  # --- Privacy & security ---
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  dpa_required_for_processors: true
+  supplier_due_diligence_required: true
+  soc2_reports_expected_from_vendors: true
+  data_residency_region: "regional"
+  cross_border_transfer: false
+  log_retention_days: 365
+  data_retention_days: 180
+
+  # --- Fairness & transparency (UNESCO / Pledge) ---
+  disclosure_required: true
+  bias_threshold: 0.15
+  explainability_score_min: 0.70
+  student_impact_assessment_required: true           # local analog to DPIA for student impact
+
+  # --- Open records (FOIA / PRA) ---
+  foia_hold_enabled: true                            # place legal holds to prevent deletion
+  foia_redaction_required: true                      # PII redaction before release
+  foia_turnaround_days: 20                           # typical FOIA response SLA (jurisdiction varies)
+
+  # --- KPIs & reliability ---
+  risk_cap: 0.60
+  token_cap: 40000
+  cost_cap_usd: 7.00
+  latency_target_ms: 1800
+  error_rate_max: 0.03
+  availability_target_pct: 99.5
+
+  # --- Lifecycle & monitoring ---
+  evaluation_interval_days: 30
+  retrain_cycle_days: 180
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_9d843e5ec9
+    low: {max: 0.35}
+    medium: {min: 0.35, max: 0.60}
+    high: {min: 0.60}
+
+  hil_policy: &hil_policy_f0e35ad720
+    require_for:
+    - "input.kpis.risk_score >= 0.35"
+    - "input.args.get('contains_pii', False) == True"
+    - "input.args.get('age', 99) < 13"
+    - "input.intent in ['bulk_export','delete_record','publish_dataset']"
+    - "input.context.get('foia_request', False) == True"
+    approver_roles: ["privacy_officer", "records_officer", "accessibility_lead"]
+    timeout_seconds: 1200
+
+  severity_map: &severity_map_7ee70fda4d
+    consent_missing_for_child: "critical"
+    accessibility_noncompliance: "high"
+    transparency_missing: "moderate"
+    encryption_not_enforced: "critical"
+    cross_border_blocked: "high"
+    vendor_soc2_report_missing: "moderate"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.args.age"
+  - "input.context.foia_request"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "parental_consent_record_id"
+  - "dpa_contract_id"
+  - "foia_case_id"
+  - "accessibility_review_id"
+
+  jurisdiction: "public sector & education"
+  regulatory_scope: ["FERPA (US)", "COPPA (US)", "UNESCO AI Ethics", "EdTech Privacy Pledge 2.0", "FOIA/PRA", "WCAG 2.1 AA / Section 508"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_4012338d4d
+  disclosure_banner: >
+    This system applies education/public-sector controls: FERPA/COPPA privacy,
+    UNESCO/EdTech transparency & fairness, FOIA/PRA records handling, and
+    accessibility (WCAG/508). Child-data operations require verified consent.
+  escalation_contact: "privacy-edu@4th.is"
+  audit_profile_tag: "EDUCATION_PUBLIC_SECTOR"
+  max_tokens: 1750
+  max_output_chars: 6800
+  foia_hold_active: "params.get('foia_hold_enabled', True)"
+  accessibility_review_required: "params.get('accessibility_compliance_required', True)"
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_aac710dad7
+  privacy_and_student_rights:
+    ferpa_process_documented: true
+    parental_and_student_rights_workflows_configured: true
+    directory_information_policy_published: true
+  child_data_coppa:
+    age_gate_enabled: true
+    verifiable_parental_consent_configured: true
+    adtech_and_tracking_disabled_for_children: true
+  accessibility:
+    wcag_2_1_aa_conformance_targeted: true
+    section_508_applicability_reviewed: true
+    accessibility_testing_in_ci: true
+  public_records:
+    foia_pra_policy_defined: true
+    redaction_workflows_in_place: true
+    legal_hold_workflow_configured: true
+  vendors_and_security:
+    dpa_signed_with_processors: true
+    vendor_soc2_or_equivalent_reviewed: true
+    encryption_and_key_mgmt_verified: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+education_public_focus:
+  student_privacy:
+  - "FERPA rights; directory information limits; school official exception controls"
+  - "State student privacy laws; data minimization; deidentification for analytics"
+  child_privacy:
+  - "COPPA: VPC, age gating, no behavioral ads or tracking for <13"
+  transparency_and_ethics:
+  - "UNESCO AI ethics principles; EdTech Privacy Pledge 2.0 commitments"
+  accessibility:
+  - "WCAG 2.1 AA / Section 508 conformance; inclusive design"
+  public_records:
+  - "FOIA/PRA request handling; retention, legal hold, redaction"
+anchors:
+  risk_bands_9d843e5ec9: *risk_bands_9d843e5ec9
+  hil_policy_f0e35ad720: *hil_policy_f0e35ad720
+  severity_map_7ee70fda4d: *severity_map_7ee70fda4d
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_c0a67f1b6b: *params_c0a67f1b6b
+  obligations_4012338d4d: *obligations_4012338d4d
+  checklists_aac710dad7: *checklists_aac710dad7

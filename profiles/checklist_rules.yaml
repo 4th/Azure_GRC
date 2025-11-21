@@ -1,0 +1,62 @@
+meta:
+  title: "OWASP API Security Checklist 2023 — Static Heuristics"
+  version: "0.2"
+  notes: >
+    These checks are best-effort and static. They cannot verify runtime controls like WAF, rate limiting enforcement, or secret handling.
+    Use this as a gap-finding helper and pair with manual review + dynamic testing.
+rules:
+- id: TLS_ONLY
+  title: "Use TLS (HTTPS) for all endpoints"
+  rationale: "Servers should only expose HTTPS URLs."
+  type: servers_only_https
+
+- id: AUTH_SCHEME_PRESENT
+  title: "Define authentication scheme"
+  rationale: "Spec should define securitySchemes (e.g., bearerAuth or OAuth2)."
+  type: security_schemes_present
+
+- id: GLOBAL_OR_PER_PATH_SECURITY
+  title: "Require auth globally or per-path"
+  rationale: "OpenAPI 'security' at root or operation level should require a scheme."
+  type: security_requirements_present
+
+- id: OAUTH_SCOPES_DEFINED
+  title: "OAuth2 flows/scopes (if applicable)"
+  rationale: "If OAuth2 is used, flows and scopes should be defined."
+  type: oauth_scopes_defined
+
+- id: ERROR_MODELS_PRESENT
+  title: "Standardized error responses"
+  rationale: "Define consistent error schema (e.g., problem+json / error object) and reference in 4xx/5xx."
+  type: error_models_consistent
+
+- id: RATE_LIMIT_HEADERS_MENTIONED
+  title: "Rate limiting headers (heuristic)"
+  rationale: "Responses may document X-RateLimit-* headers (static proxy for rate limiting doc)."
+  type: ratelimit_headers_present
+
+- id: INPUT_VALIDATION_PARAMS
+  title: "Parameter schemas with types/constraints"
+  rationale: "Parameters should have type/format and constraints (enum, min/max, pattern)."
+  type: parameter_constraints_present
+
+- id: REQUEST_BODY_SCHEMA
+  title: "Request bodies have schemas"
+  rationale: "Each requestBody should reference/define a schema."
+  type: requestbody_schema_present
+
+- id: RESPONSE_SCHEMAS_DEFINED
+  title: "Responses carry well-defined schemas"
+  rationale: "Each 2xx/4xx/5xx should have a schema, not just free-form text."
+  type: response_schema_present
+
+- id: SENSITIVE_FIELDS_NO_EXAMPLE
+  title: "Avoid secrets in examples (heuristic)"
+  rationale: "Examples should not contain real secrets (sk-*, passwords)."
+  type: no_secrets_in_examples
+
+- id: CORS_DOCUMENTED
+  title: "CORS headers documented (heuristic)"
+  rationale: "Public APIs often document CORS (Access-Control-Allow-*)."
+  type: cors_headers_documented
+anchors: {}

@@ -1,0 +1,29 @@
+# 4th.GRC™ — Agentic AI Governance Platform Requirements
+# Core Framework
+fastapi>=0.110
+uvicorn[standard]>=0.27
+pydantic>=2.6
+pyyaml>=6.0
+httpx>=0.27
+python-dotenv>=1.0
+
+# Web & Visualization
+streamlit>=1.35
+
+# Azure SDKs
+azure-identity>=1.16
+azure-keyvault-secrets>=4.8
+azure-storage-blob>=12.19
+azure-mgmt-resource>=23.0
+azure-cosmos>=4.5
+
+# Observability
+opencensus-ext-azure>=1.1
+
+# Testing
+pytest>=8.2
+
+# Optional Tools
+langchain>=0.2
+semantic-kernel>=0.4
+openai>=1.35

@@ -1,0 +1,140 @@
+# infra/pipelines/azure-devops/terraform-ci.yml
+# Azure DevOps pipeline to run Terraform init/validate/plan/apply for 4th.GRC infra (dev)
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - infra/terraform/*
+      - infra/terraform/**/*
+      - infra/pipelines/azure-devops/terraform-ci.yml
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - infra/terraform/*
+      - infra/terraform/**/*
+      - infra/pipelines/azure-devops/terraform-ci.yml
+
+variables:
+  # Environment selector (you can later parameterize for staging/prod)
+  environmentName: 'dev'
+
+  # Working directory where Terraform code for this env lives
+  tfWorkingDir: 'infra/terraform/environments/dev'
+
+  # Azure DevOps service connection name (ARM or workload identity)
+  azureServiceConnection: '<AZURE_SERVICE_CONNECTION_NAME>'
+
+  # Optional: remote state config (if using azurerm backend)
+  # tfStateResourceGroup: '<TF_STATE_RG>'
+  # tfStateStorageAccount: '<TF_STATE_STORAGE_ACCOUNT>'
+  # tfStateContainer: '<TF_STATE_CONTAINER>'
+  # tfStateKey: '4th-grc-$(environmentName).tfstate'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: ValidateAndPlan
+    displayName: 'Terraform Validate & Plan – $(environmentName)'
+    jobs:
+      - job: Plan
+        displayName: 'Terraform init/validate/plan'
+        steps:
+          - checkout: self
+
+          - task: AzureCLI@2
+            displayName: 'Azure login (for backend & providers)'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                echo "Logged into Azure via service connection: $(azureServiceConnection)"
+                az account show
+
+          - task: TerraformInstaller@1
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: '1.9.0'
+
+          - script: |
+              set -e
+              cd "$(tfWorkingDir)"
+
+              echo "Working directory: $(pwd)"
+              echo "Initializing Terraform..."
+
+              terraform init
+              # If using remote state, prefer:
+              # terraform init \
+              #   -backend-config="resource_group_name=$(tfStateResourceGroup)" \
+              #   -backend-config="storage_account_name=$(tfStateStorageAccount)" \
+              #   -backend-config="container_name=$(tfStateContainer)" \
+              #   -backend-config="key=$(tfStateKey)"
+
+              echo "Validating Terraform..."
+              terraform validate
+
+              echo "Planning Terraform for environment '$(environmentName)'..."
+              terraform plan -var-file="$(environmentName).tfvars" -out=tfplan
+
+            displayName: 'Terraform init, validate, and plan'
+            env:
+              ARM_USE_OIDC: 'true'
+
+          # Optionally publish the plan file as an artifact
+          - task: PublishBuildArtifacts@1
+            displayName: 'Publish Terraform plan artifact'
+            inputs:
+              PathtoPublish: '$(tfWorkingDir)/tfplan'
+              ArtifactName: 'tfplan-$(environmentName)'
+              publishLocation: 'Container'
+
+  - stage: Apply
+    displayName: 'Terraform Apply – $(environmentName)'
+    dependsOn: ValidateAndPlan
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - job: Apply
+        displayName: 'Terraform apply (main branch only)'
+        steps:
+          - checkout: self
+
+          - task: AzureCLI@2
+            displayName: 'Azure login (for backend & providers)'
+            inputs:
+              azureSubscription: '$(azureServiceConnection)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                echo "Logged into Azure via service connection: $(azureServiceConnection)"
+                az account show
+
+          - task: TerraformInstaller@1
+            displayName: 'Install Terraform'
+            inputs:
+              terraformVersion: '1.9.0'
+
+          - script: |
+              set -e
+              cd "$(tfWorkingDir)"
+
+              echo "Re-initializing Terraform..."
+              terraform init
+
+              # Recreate plan or reuse a stored one; simplest is re-plan then apply:
+              echo "Re-running plan for safety..."
+              terraform plan -var-file="$(environmentName).tfvars" -out=tfplan
+
+              echo "Applying Terraform changes for environment '$(environmentName)'..."
+              terraform apply -auto-approve tfplan
+            displayName: 'Terraform apply'
+            env:
+              ARM_USE_OIDC: 'true'

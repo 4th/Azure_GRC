@@ -1,0 +1,178 @@
+# =======================================================================
+#  policies/profiles/iso_38507-governance.yaml — ISO/IEC 38507 (AI Governance of IT)
+# -----------------------------------------------------------------------
+# Purpose
+#   Provide a governance-first profile aligned to ISO/IEC 38507 guidance on
+#   the corporate governance of AI — decision rights, accountability,
+#   performance monitoring, risk oversight, and alignment with business value.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - Parameters emphasize roles/RACI, performance & conformance KPIs,
+#     policy ownership, board reporting, and change control.
+# =======================================================================
+
+profile: ISO_38507_GOVERNANCE
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_b8f1d33235
+  # Governance posture
+  policy_enforcement_level: "strict"
+  board_oversight_required: true              # AI governance reported to board or committee
+  executive_owner_role: "CIO"                 # accountable executive (e.g., CIO, CDO, CAIO)
+  governance_council_required: true           # cross-functional AI governance council
+  raci_defined_required: true                 # RACI matrix for major processes
+  change_ticket_required: true
+  human_review_required: true                 # governance favors HIL for significant impacts
+
+  # Strategy & value alignment
+  business_case_required: true                # each AI use case must have business case
+  kpi_tree_defined_required: true             # outcome → lead KPIs → control KPIs
+  benefits_realization_review_days: 90        # cadence to verify benefits vs plan
+
+  # Performance & conformance KPIs
+  risk_cap: 0.65
+  bias_threshold: 0.15
+  explainability_score_min: 0.70
+  token_cap: 45000
+  cost_cap_usd: 9.00
+  latency_target_ms: 1800
+  error_rate_max: 0.03
+  availability_target_pct: 99.5
+
+  # Compliance & assurance
+  internal_audit_cadence_days: 180            # schedule internal audit cadence
+  control_testing_required: true              # periodic control testing (sampling)
+  management_review_cadence_days: 90          # leadership review of AI governance
+  policy_exception_process_required: true
+
+  # Security & privacy alignment
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  pii_allowed: false
+  dpa_required_for_processors: true
+  data_residency_region: "global"
+  cross_border_transfer: true                 # allowed with safeguards
+  log_retention_days: 180
+  data_retention_days: 30
+
+  # Lifecycle & risk escalation
+  evaluation_interval_days: 30
+  retrain_cycle_days: 120
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true
+
+  # Structured helpers
+  risk_bands: &risk_bands_482d50b9ba
+    low: {max: 0.40}
+    medium: {min: 0.40, max: 0.65}
+    high: {min: 0.65}
+
+  hil_policy: &hil_policy_9b8d6028f8
+    require_for:
+    - "input.kpis.risk_score >= 0.40"
+    - "input.args.get('contains_pii', False) == True"
+    - "input.intent in ['approve_payment','bulk_export','delete_record']"
+    - "input.impact.get('reputational','low') in ['medium','high']"
+    approver_roles: ["business_owner", "compliance_officer", "risk_manager"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_7e504cbc56
+    token_budget_exceeded: "moderate"
+    model_not_approved: "high"
+    pii_not_allowed_for_this_profile: "critical"
+    transparency_missing: "moderate"
+    encryption_not_enforced: "critical"
+    governance_artifacts_missing: "high"
+
+  incident_thresholds: &incident_thresholds_3259266b0c
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  # Evidence fields for assurance reporting
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "policy_exception_id"
+  - "management_review_id"
+
+  jurisdiction: "global"
+  regulatory_scope: ["ISO/IEC 38507", "COBIT 2019 (reference)", "ISO/IEC 27001 (reference)"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_7ddb36f97f
+  disclosure_banner: >
+    This system follows ISO/IEC 38507 governance practices emphasizing
+    accountability, decision rights, performance monitoring, and risk oversight.
+  escalation_contact: "governance@4th.is"
+  audit_profile_tag: "ISO_38507_GOVERNANCE"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_fcdf791c16
+  governance_artifacts:
+    board_charter_or_terms_of_reference_present: true
+    governance_council_minutes_documented: true
+    raci_matrix_published: true
+    policy_exception_register_maintained: true
+  strategy_alignment:
+    business_case_documented: true
+    kpi_tree_defined: true
+    benefits_realization_reviews_scheduled: true
+  assurance:
+    internal_audit_schedule_defined: true
+    control_testing_plan_defined: true
+    management_reviews_scheduled: true
+
+# ---------------------- 38507 crosswalk (informative) --------------------
+iso_38507_focus:
+  evaluate_direct:
+  - "Ensure AI supports business objectives and stakeholder needs"
+  - "Establish decision rights, accountability, and policies"
+  monitor:
+  - "Monitor performance and conformance KPIs; review exceptions"
+  - "Commission internal audits and management reviews"
+  direct:
+  - "Provide direction on risk appetite, ethics, and compliance"
+  - "Approve major AI changes and resource allocation"
+anchors:
+  risk_bands_482d50b9ba: *risk_bands_482d50b9ba
+  hil_policy_9b8d6028f8: *hil_policy_9b8d6028f8
+  severity_map_7e504cbc56: *severity_map_7e504cbc56
+  incident_thresholds_3259266b0c: *incident_thresholds_3259266b0c
+  params_b8f1d33235: *params_b8f1d33235
+  obligations_7ddb36f97f: *obligations_7ddb36f97f
+  checklists_fcdf791c16: *checklists_fcdf791c16

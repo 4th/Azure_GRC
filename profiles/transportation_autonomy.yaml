@@ -1,0 +1,218 @@
+# =====================================================================================
+#  policies/profiles/transportation_autonomy.yaml — Transportation & Autonomy Overlay
+# -------------------------------------------------------------------------------------
+# Purpose
+#   Sector profile for autonomous/ADAS/robotics systems, referencing:
+#   - ISO 26262 (Functional Safety for Road Vehicles)
+#   - ISO/PAS 21448 (SOTIF — Safety Of The Intended Functionality)
+#   - UL 4600 (Safety for the Evaluation of Autonomous Products)
+#   - SAE J3016 (Levels of Driving Automation)
+#   - UNECE ADS regulations (informative), ISO 21434 (Cybersecurity) as context
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules in ../rules/*.yaml.
+#   - Tune ODD, ASIL, and safety-case artifacts with your Safety/Systems team.
+# =====================================================================================
+
+profile: TRANSPORTATION_AUTONOMY
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# -------------------------------- Parameters --------------------------------
+params: &params_f61a3a9fe4
+  # --- Functional-safety posture ---
+  policy_enforcement_level: "strict"
+  asil_target: "C"                                     # ASIL A/B/C/D (ISO 26262)
+  sotif_applicable: true                               # ISO/PAS 21448
+  ul4600_safety_case_required: true
+  safety_case_artifact_ids_required: true              # safety goal, hazards, V&V evidence
+  ml_safety_argument_required: true                    # explicit ML dependence argument
+  minimal_risk_condition_defined: true                 # MRC fallback behavior defined
+  fallback_strategies_defined: true                    # limp-home/pull-over/etc.
+  hazard_analysis_complete: true
+  verification_validation_plan_defined: true
+  simulation_coverage_target_pct: 95
+  onroad_testing_gate_required: true
+  change_ticket_required: true
+
+  # --- ODD (Operational Design Domain) ---
+  odd_defined: true
+  odd_dimensions:
+    roadway_types: ["motorway", "urban", "rural"]
+    speed_range_kph: [0, 110]
+    weather: ["clear", "rain", "snow", "fog"]
+    lighting: ["day", "night", "tunnel"]
+    traffic: ["low", "medium", "high"]
+    geo_fence: ["city_center", "ring_road"]
+  out_of_odd_detection_required: true
+  graceful_degradation_required: true
+
+  # --- SAE automation level & human factors ---
+  sae_level: 3                                         # 0..5 (J3016)
+  driver_monitoring_required_for_L2_L3: true
+  hmi_takeover_request_max_latency_ms: 2000
+  human_override_capability_required: true
+  misuse_abuse_mitigation_required: true               # foreseeable misuse
+
+  # --- Data integrity, logging, and EDR ---
+  tamper_evidence_required: true
+  edr_like_logging_required: true                      # event data recorder
+  time_sync_required: true
+  log_retention_days: 365
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.context.sae_level"
+  - "input.context.asil"
+  - "input.context.odd_id"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "safety_case_id"
+  - "hara_id"
+  - "vv_plan_id"
+  - "edr_segment_id"
+
+  # --- Cybersecurity posture (ISO 21434 awareness) ---
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  secure_boot_required: true
+  code_signing_required_for_release: true
+  vulnerability_management_program_defined: true
+  supplier_qualification_required: true
+
+  # --- Data privacy (in-cabin sensors/video) ---
+  pii_allowed: true
+  deidentification_preferred_for_analytics: true
+  retention_schedule_defined: true
+
+  # --- KPIs (operational overlays) ---
+  risk_cap: 0.50
+  bias_threshold: 0.10
+  explainability_score_min: 0.75
+  token_cap: 38000
+  cost_cap_usd: 8.00
+  latency_target_ms: 1500
+  error_rate_max: 0.02
+  availability_target_pct: 99.9
+
+  # --- Lifecycle & monitoring ---
+  evaluation_interval_days: 30
+  retrain_cycle_days: 120
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true               # CAPA for field issues
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_d8df7dee31
+    low: {max: 0.30}
+    medium: {min: 0.30, max: 0.50}
+    high: {min: 0.50}
+
+  hil_policy: &hil_policy_cfed2a7616
+    require_for:
+    - "input.kpis.risk_score >= 0.30"
+    - "input.intent in ['deploy_to_fleet','enable_feature_flag','override_safety']"
+    - "input.context.get('sae_level', 0) >= 3"
+    - "input.context.get('asil') in ['C','D']"
+    - "input.context.get('out_of_odd_detected', False) == True"
+    approver_roles: ["functional_safety_owner", "safety_case_authority", "program_manager"]
+    timeout_seconds: 1800
+
+  severity_map: &severity_map_36bc919e14
+    minimal_risk_condition_missing: "critical"
+    safety_case_missing: "critical"
+    out_of_odd_operation: "critical"
+    encryption_not_enforced: "critical"
+    transparency_missing: "moderate"
+    change_not_approved: "high"
+    driver_monitoring_missing_for_L2_L3: "high"
+
+  incident_thresholds: &incident_thresholds_2a12963227
+    consecutive_denies_for_user: {count: 2, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 3, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  jurisdiction: "global (transportation)"
+  regulatory_scope: ["ISO 26262", "ISO/PAS 21448 (SOTIF)", "UL 4600", "SAE J3016", "ISO 21434 (informative)"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_423f04561b
+  disclosure_banner: >
+    This system applies transportation autonomy controls aligned to ISO 26262,
+    SOTIF, UL 4600, and SAE J3016, including ODD gating, safety-case evidence,
+    driver/HMI safeguards, and EDR-grade logging.
+  escalation_contact: "safety@4th.is"
+  audit_profile_tag: "TRANSPORTATION_AUTONOMY"
+  max_tokens: 1700
+  max_output_chars: 6500
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_cf91bae26a
+  functional_safety:
+    safety_goals_defined: true
+    hazard_analysis_completed: true
+    asil_assigned_and_approved: true
+    vv_plan_defined: true
+  sotif_and_ul4600:
+    intended_functionality_defined: true
+    foreseeable_misuse_addressed: true
+    safety_case_compiled: true
+    simulation_coverage_measured: true
+  odd_and_hmi:
+    odd_specified_and_versioned: true
+    out_of_odd_detection_implemented: true
+    mrc_and_fallbacks_defined: true
+    driver_monitoring_active_for_l2_l3: true
+  cybersecurity_and_supply_chain:
+    secure_boot_and_signing_enforced: true
+    vulnerability_management_in_place: true
+    supplier_qualification_complete: true
+  logging_and_records:
+    edr_logging_configured: true
+    time_sync_configured: true
+    retention_schedule_applied: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+transport_autonomy_focus:
+  iso_26262:
+  - "HARA, ASIL, safety goals, V&V, release with safety argument"
+  sotif_iso_21448:
+  - "Performance limitations, triggering conditions, foreseeable misuse"
+  ul_4600:
+  - "Safety case content, independence, evidence, lifecycle maintenance"
+  sae_j3016:
+  - "L0–L5 automation levels; driver fallback & DMS for L2/L3"
+anchors:
+  risk_bands_d8df7dee31: *risk_bands_d8df7dee31
+  hil_policy_cfed2a7616: *hil_policy_cfed2a7616
+  severity_map_36bc919e14: *severity_map_36bc919e14
+  incident_thresholds_2a12963227: *incident_thresholds_2a12963227
+  params_f61a3a9fe4: *params_f61a3a9fe4
+  obligations_423f04561b: *obligations_423f04561b
+  checklists_cf91bae26a: *checklists_cf91bae26a

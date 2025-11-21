@@ -1,0 +1,173 @@
+# =======================================================================
+#  policies/profiles/fips_140-3.yaml — FIPS 140-3 Cryptographic Module Constraints
+# -----------------------------------------------------------------------
+# Purpose
+#   Enforce that cryptographic operations used by the agent (at rest, in transit,
+#   and for key management) occur only via FIPS 140-3 validated modules and
+#   approved algorithms, with proper key sizes, modes, and configuration.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - Parameters below are operational proxies; authoritative compliance
+#     is determined by CMVP certificates and platform configuration.
+# =======================================================================
+
+profile: FIPS_140_3
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_7e1f999511
+  # --- Global enforcement ---
+  policy_enforcement_level: "strict"
+  fips_mode_required: true                         # platform/service must run in FIPS mode
+  cmvp_certification_required: true                # cryptographic module must have a CMVP cert
+  cmvp_cert_levels_allowed: [1, 2, 3, 4]           # acceptable levels (tighten as needed)
+  cmvp_cert_list: []                               # optional allowlist of certificate numbers
+  allow_nonvalidated_crypto: false                 # block ad-hoc/nonvalidated crypto
+
+  # --- Transport Security (TLS) ---
+  tls_min_version: "TLS1.2"                        # TLS 1.2+ in FIPS mode
+  tls_cipher_suites_allowed:
+  - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+  - "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+  - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+  - "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+  tls_cipher_suites_blocklist:
+  - "TLS_RSA_WITH_*"                               # static RSA key exchange disallowed
+  - "TLS_ECDHE_*_WITH_CHACHA20_POLY1305*"          # often not FIPS-validated on many stacks
+  - "TLS_*_WITH_RC4_*"
+  - "TLS_*_WITH_3DES_EDE_CBC_*"
+
+  # --- Approved algorithms & key sizes (illustrative) ---
+  symmetric_algorithms_allowed: ["AES-128-GCM", "AES-256-GCM", "AES-128-CBC", "AES-256-CBC"]
+  asymmetric_algorithms_allowed: ["RSA-2048", "RSA-3072", "ECC-P256", "ECC-P384"]
+  hashing_algorithms_allowed: ["SHA-256", "SHA-384", "SHA-512"]
+  mac_algorithms_allowed: ["HMAC-SHA-256", "HMAC-SHA-384", "HMAC-SHA-512"]
+  kdf_algorithms_allowed: ["HKDF-SHA-256", "HKDF-SHA-384", "SP800-108-KDF"]
+
+  # --- Disallowed algorithms/modes ---
+  algorithms_blocklist: ["MD5", "SHA-1", "DES", "3DES", "RC4", "Blowfish", "Twofish", "ChaCha20-Poly1305"]
+  rsa_min_key_bits: 2048
+  ec_allowed_curves: ["P-256", "P-384"]           # Brainpool, Ed25519 typically not FIPS approved
+
+  # --- Key management & storage ---
+  key_management_process_defined: true
+  hsm_or_kms_required_for_keys: true              # use HSM/KMS where feasible
+  key_rotation_days: 365
+  key_wrapping_required: true
+  key_export_prohibited: true
+  key_zeroization_required: true
+  separate_keys_per_env: true
+
+  # --- Randomness & self-tests ---
+  drbg_approved_required: true                    # SP 800-90A/B/C compliant DRBG
+  power_up_self_tests_required: true              # module self-tests at startup
+  continuous_random_tests_required: true
+
+  # --- Evidence & logging ---
+  enable_decision_logging: true
+  decision_log_format: "json"
+  include_trace_id: true
+  log_retention_days: 365
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "crypto.module.vendor"
+  - "crypto.module.name"
+  - "crypto.module.version"
+  - "crypto.module.cmvp_cert_number"
+  - "crypto.module.cmvp_level"
+  - "transport.tls_version"
+  - "transport.cipher_suite"
+  - "result.allow"
+  - "result.deny_reasons"
+  - "result.obligations"
+
+  # --- Operational overlays (optional KPIs) ---
+  risk_cap: 0.65
+  token_cap: 45000
+  cost_cap_usd: 9.00
+  latency_target_ms: 1800
+  error_rate_max: 0.03
+  availability_target_pct: 99.5
+
+  jurisdiction: "global (FIPS use where mandated)"
+  regulatory_scope: ["FIPS 140-3", "SP 800-140x", "SP 800-56A/B", "SP 800-90A/B/C"]
+
+  # --- Severity mapping for crypto violations ---
+  severity_map: &severity_map_498a78432d
+    nonvalidated_crypto_detected: "critical"
+    tls_version_too_low: "critical"
+    tls_cipher_not_allowed: "high"
+    algorithm_not_allowed: "high"
+    rsa_key_too_short: "high"
+    ec_curve_not_allowed: "high"
+    key_export_attempted: "critical"
+    missing_cmvp_certificate: "high"
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_291661800d
+  disclosure_banner: >
+    This system enforces FIPS 140-3 constraints. Only CMVP-validated modules
+    and allowed algorithms/ciphers may be used. Violations are logged and
+    will block the operation.
+  escalation_contact: "crypto-compliance@4th.is"
+  audit_profile_tag: "FIPS_140_3"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_eab5aeec5f
+  platform_and_modules:
+    platform_in_fips_mode: true
+    cmvp_certificate_numbers_recorded: true
+    self_tests_executed_on_startup: true
+  transport_security:
+    tls_min_version_enforced: true
+    allowed_cipher_suite_list_deployed: true
+    rsa_kea_disabled: true
+  key_management:
+    hsm_or_kms_used: true
+    key_rotation_policy_defined: true
+    key_export_controls_enforced: true
+    zeroization_procedures_in_place: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+fips_focus:
+  module_validation:
+  - "CMVP certificate, approved mode, self-tests, roles/services"
+  approved_algorithms:
+  - "AES, RSA/ECC with approved key sizes, SHA-2, HMAC, SP800-56/108/90"
+  key_management:
+  - "KMS/HSM, wrapping, rotation, zeroization, separation by env"
+  transport_security:
+  - "TLS 1.2+/approved cipher suites; no static RSA key exchange"
+anchors:
+  severity_map_498a78432d: *severity_map_498a78432d
+  params_7e1f999511: *params_7e1f999511
+  obligations_291661800d: *obligations_291661800d
+  checklists_eab5aeec5f: *checklists_eab5aeec5f

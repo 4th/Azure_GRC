@@ -1,0 +1,213 @@
+# =======================================================================
+#  policies/profiles/iso_27001.yaml — ISO/IEC 27001 ISMS Profile
+# -----------------------------------------------------------------------
+# Purpose
+#   Align agent behavior and operational controls with ISO/IEC 27001 (ISMS).
+#   Emphasizes information security policies, access control, crypto,
+#   logging/monitoring, supplier management, and continuous improvement.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - Parameters map to Annex A control themes where useful.
+# =======================================================================
+
+profile: ISO_27001_ISMS
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_52ee80bfe4
+  # --- Information security policy & organization (A.5) ---
+  policy_enforcement_level: "strict"
+  information_security_policy_approved: true
+  roles_and_responsibilities_defined: true
+  segregation_of_duties_enabled: true
+
+  # --- Asset management (A.8) ---
+  asset_inventory_required: true
+  model_catalog_required: true
+  tool_allowlist_required: true
+  data_classification_required: true
+
+  # --- Access control (A.9) ---
+  rbac_enabled: true
+  least_privilege_enforced: true
+  mfa_required_for_admins: true
+  session_timeout_minutes: 30
+
+  # --- Cryptography (A.10) ---
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  key_management_process_defined: true
+  fips_140_3_modules_preferred: true
+
+  # --- Physical & environmental (A.11) — proxy flags for cloud context ---
+  cloud_provider_controls_reviewed: true
+
+  # --- Operations security (A.12) ---
+  change_ticket_required: true
+  anti_malware_controls_expected: true
+  logging_and_monitoring_required: true
+  backup_and_restore_defined: true
+
+  # --- Communications security (A.13) ---
+  network_segmentation_required: true
+  egress_filtering_required: true
+
+  # --- System acquisition, development, maintenance (A.14) ---
+  secure_development_lifecycle_in_place: true
+  code_review_required: true
+  dependency_scanning_required: true
+
+  # --- Supplier relationships (A.15) ---
+  dpa_required_for_processors: true
+  supplier_due_diligence_required: true
+  supplier_certifications_expected: ["ISO/IEC 27001", "SOC 2"]
+
+  # --- Incident mgmt (A.16) ---
+  incident_response_plan_defined: true
+  incident_reporting_timeline_hours: 24
+
+  # --- Business continuity (A.17) ---
+  bc_dr_plan_defined: true
+  recovery_time_objective_minutes: 60
+
+  # --- Compliance (A.18) ---
+  pii_allowed: false
+  data_residency_region: "global"
+  cross_border_transfer: true                # allowed with safeguards/SCCs
+  data_retention_days: 30
+  log_retention_days: 180
+
+  # --- KPIs & reliability ---
+  risk_cap: 0.65
+  bias_threshold: 0.15
+  explainability_score_min: 0.70
+  token_cap: 45000
+  cost_cap_usd: 9.00
+  latency_target_ms: 1800
+  error_rate_max: 0.03
+  availability_target_pct: 99.5
+
+  # --- Lifecycle & improvement ---
+  evaluation_interval_days: 30
+  retrain_cycle_days: 120
+  drift_detection_enabled: true
+  internal_audit_cadence_days: 180
+  management_review_cadence_days: 90
+  nonconformity_tracking_enabled: true
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_482d50b9ba
+    low: {max: 0.40}
+    medium: {min: 0.40, max: 0.65}
+    high: {min: 0.65}
+
+  hil_policy: &hil_policy_c6dd9a7969
+    require_for:
+    - "input.kpis.risk_score >= 0.40"
+    - "input.args.get('contains_pii', False) == True"
+    - "input.intent in ['approve_payment','bulk_export','delete_record']"
+    approver_roles: ["security_officer", "risk_manager"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_29f63fbd99
+    token_budget_exceeded: "moderate"
+    model_not_approved: "high"
+    pii_not_allowed_for_this_profile: "critical"
+    transparency_missing: "moderate"
+    encryption_not_enforced: "critical"
+    network_domain_not_allowlisted: "high"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "ticket_ids.change_request"
+  - "ticket_ids.incident"
+
+  jurisdiction: "global"
+  regulatory_scope: ["ISO/IEC 27001", "SOC 2 (reference)", "NIST SP 800-53 (reference)"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_9f3727d506
+  disclosure_banner: >
+    This system follows ISO/IEC 27001-aligned information security controls,
+    including access management, encryption, logging, and supplier oversight.
+  escalation_contact: "security@4th.is"
+  audit_profile_tag: "ISO_27001_ISMS"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_366e06a828
+  isms_core:
+    information_security_policy_approved: true
+    risk_assessment_conducted: true
+    risk_treatment_plan_defined: true
+    statement_of_applicability_completed: true
+  operations:
+    change_management_in_place: true
+    backups_tested: true
+    logging_and_monitoring_enabled: true
+  assurance:
+    internal_audit_schedule_defined: true
+    management_reviews_scheduled: true
+
+# ---------------------- ISO 27001 crosswalk (informative) ----------------
+iso_27001_focus:
+  policy_and_org:
+  - "A.5: Policies and organization of information security"
+  access_control:
+  - "A.9: Access control (RBAC, MFA, least privilege)"
+  cryptography:
+  - "A.10: Encryption and key management"
+  operations_security:
+  - "A.12: Logging, monitoring, change control, malware protection"
+  supplier_relationships:
+  - "A.15: Supplier due diligence and contractual controls"
+  incident_management:
+  - "A.16: Incident response planning and reporting"
+  bc_and_compliance:
+  - "A.17: Business continuity; A.18: Compliance"
+anchors:
+  risk_bands_482d50b9ba: *risk_bands_482d50b9ba
+  hil_policy_c6dd9a7969: *hil_policy_c6dd9a7969
+  severity_map_29f63fbd99: *severity_map_29f63fbd99
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_52ee80bfe4: *params_52ee80bfe4
+  obligations_9f3727d506: *obligations_9f3727d506
+  checklists_366e06a828: *checklists_366e06a828

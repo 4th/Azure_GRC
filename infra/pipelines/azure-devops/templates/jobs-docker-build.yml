@@ -1,0 +1,68 @@
+ # infra/pipelines/azure-devops/templates/jobs-docker-build.yml
+# Reusable job template for building & pushing a Docker image
+
+parameters:
+  # Required
+  - name: imageName
+    type: string
+  - name: dockerfilePath
+    type: string
+  - name: containerRegistry
+    type: string        # e.g. 4thgrcdev.azurecr.io
+
+  # Optional
+  - name: imageTag
+    type: string
+    default: '$(Build.SourceVersion)'
+  - name: vmImage
+    type: string
+    default: 'ubuntu-latest'
+  - name: dockerServiceConnection
+    type: string
+    default: ''         # If set, we’ll use Docker@2 login
+
+jobs:
+  - job: BuildAndPush_${{ parameters.imageName }}
+    displayName: Build & Push ${{ parameters.imageName }}
+    pool:
+      vmImage: ${{ parameters.vmImage }}
+
+    steps:
+      - checkout: self
+
+      - task: DockerInstaller@0
+        displayName: 'Install Docker (if needed)'
+
+      # 🔐 Login to registry
+      # Option A: via Docker service connection (preferred)
+      - ${{ if ne(parameters.dockerServiceConnection, '') }}:
+        - task: Docker@2
+          displayName: 'Login to container registry (service connection)'
+          inputs:
+            command: 'login'
+            containerRegistry: ${{ parameters.dockerServiceConnection }}
+
+      # Option B: via username/password env vars (ACR_USERNAME / ACR_PASSWORD)
+      - ${{ if eq(parameters.dockerServiceConnection, '') }}:
+        - script: |
+            echo "$ACR_PASSWORD" | docker login ${{ parameters.containerRegistry }} \
+              --username "$ACR_USERNAME" --password-stdin
+          displayName: 'Login to container registry (username/password)'
+          env:
+            ACR_USERNAME: $(ACR_USERNAME)
+            ACR_PASSWORD: $(ACR_PASSWORD)
+
+      - script: |
+          IMAGE="${{ parameters.containerRegistry }}/${{ parameters.imageName }}:${{ parameters.imageTag }}"
+          echo "Building image: $IMAGE"
+          docker build \
+            -t "$IMAGE" \
+            -f "${{ parameters.dockerfilePath }}" \
+            .
+        displayName: 'Build Docker image'
+
+      - script: |
+          IMAGE="${{ parameters.containerRegistry }}/${{ parameters.imageName }}:${{ parameters.imageTag }}"
+          echo "Pushing image: $IMAGE"
+          docker push "$IMAGE"
+        displayName: 'Push Docker image'

@@ -1,0 +1,18 @@
+{
+  "profile_ref": "iso_42001-global@1.2.0",
+  "context": {
+    "system_name": "Demo LLM System",
+    "owner": "Test Owner",
+    "environment": "dev"
+  },
+  "evidence": {
+    "model_card": {
+      "type": "inline",
+      "value": {
+        "model_name": "demo-llm",
+        "version": "1.0.0",
+        "has_bias_mitigation": true
+      }
+    }
+  }
+}

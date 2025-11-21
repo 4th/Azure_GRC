@@ -1,0 +1,217 @@
+# =======================================================================
+#  policies/profiles/pmbok.yaml — PMBOK Project Governance Checkpoints
+# -----------------------------------------------------------------------
+# Purpose
+#   Operational overlay aligning agentic AI projects with PMI PMBOK
+#   (integration, scope, schedule, cost, quality, resource, communications,
+#    risk, procurement, stakeholder) and phase/stage-gate governance.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses common rule modules from ../rules/*.yaml.
+#   - Gate names are illustrative; adapt to your organization's lifecycle.
+# =======================================================================
+
+profile: PMBOK
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_c7cd376989
+  # --- Governance posture ---
+  policy_enforcement_level: "strict"
+  pm_governance_board_enabled: true
+  project_manager_assigned: true
+  sponsor_assigned: true
+  rasic_defined: true
+
+  # --- Stage / Phase gates ---
+  stage_gates:
+    G0_idea_intake:
+      required_artifacts: ["problem_statement", "initial_risk_scan", "benefits_hypothesis"]
+      approvers: ["sponsor", "portfolio_manager"]
+    G1_initiate:
+      required_artifacts: ["project_charter", "stakeholder_register", "high_level_plan"]
+      approvers: ["sponsor", "pm_governance_board"]
+    G2_plan:
+      required_artifacts: ["pmp_master_plan", "wbs", "schedule", "budget", "qam_plan", "risk_management_plan", "communications_plan", "procurement_plan"]
+      approvers: ["pm_governance_board"]
+    G3_execute_alpha:
+      required_artifacts: ["iteration_plan", "definition_of_done", "test_strategy", "security_privacy_assessment"]
+      approvers: ["service_owner", "quality_manager"]
+    G4_beta_pilot:
+      required_artifacts: ["release_plan", "pilot_runbook", "support_plan", "rollback_plan", "acceptance_criteria"]
+      approvers: ["change_advisory_board", "service_owner"]
+    G5_go_live:
+      required_artifacts: ["deployment_plan", "monitoring_plan", "incident_response_playbook", "training_materials"]
+      approvers: ["change_advisory_board", "sponsor"]
+    G6_operate_improve:
+      required_artifacts: ["runbooks", "sla_ola", "kpi_dashboard", "lessons_learned_report"]
+      approvers: ["service_owner", "pm_governance_board"]
+
+  # --- Knowledge areas (key thresholds/expectations) ---
+  integration_management_required: true
+  scope_baseline_required: true
+  schedule_baseline_required: true
+  cost_baseline_required: true
+  quality_management_plan_required: true
+  resource_plan_required: true
+  communications_plan_required: true
+  risk_management_plan_required: true
+  procurement_plan_required: true
+  stakeholder_engagement_plan_required: true
+
+  # --- Change control & variance thresholds ---
+  change_control_board_enabled: true
+  variance_thresholds: &variance_thresholds_d75c5271ce
+    cost_pct: 10
+    schedule_pct: 10
+    scope_change_requires_ccb: true
+  contingency_reserve_defined: true
+  management_reserve_defined: true
+
+  # --- RAID (Risks, Assumptions, Issues, Dependencies) ---
+  raid_log_required: true
+  risk_register_required: true
+  issue_escalation_sla_hours: 24
+  dependency_map_required: true
+
+  # --- KPIs & performance ---
+  benefits_realization_plan_defined: true
+  kpi_dashboard_enabled: true
+  milestone_burnup_tracking: true
+  availability_target_pct: 99.5
+  error_rate_max: 0.03
+  latency_target_ms: 1800
+  cost_cap_usd: 9000
+  token_cap: 45000
+  risk_cap: 0.60
+
+  # --- HIL triggers ---
+  hil_policy: &hil_policy_7716e6c693
+    require_for:
+    - "input.context.get('stage_gate') in ['G2_plan','G4_beta_pilot','G5_go_live']"
+    - "input.intent in ['change_release','approve_budget','approve_scope_change']"
+    - "input.kpis.risk_score >= 0.40"
+    - "abs(input.context.get('schedule_variance_pct', 0)) > params.get('variance_thresholds', {}).get('schedule_pct', 10)"
+    - "abs(input.context.get('cost_variance_pct', 0)) > params.get('variance_thresholds', {}).get('cost_pct', 10)"
+    approver_roles: ["project_manager", "sponsor", "change_advisory_board"]
+    timeout_seconds: 1200
+
+  # --- Severity mapping ---
+  severity_map: &severity_map_04cb804355
+    missing_charter_or_sponsor: "high"
+    baseline_missing_or_not_approved: "high"
+    variance_exceeds_threshold: "high"
+    scope_change_without_ccb: "high"
+    benefits_plan_missing: "moderate"
+    transparency_missing: "moderate"
+    encryption_not_enforced: "critical"
+
+  # --- Incident/threshold alerts ---
+  incident_thresholds: &incident_thresholds_f5a09bcfa2
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  # --- Evidence fields ---
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.context.stage_gate"
+  - "input.context.schedule_variance_pct"
+  - "input.context.cost_variance_pct"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "project_charter_id"
+  - "pmp_document_id"
+  - "ccb_change_id"
+  - "risk_register_item_id"
+  - "issue_record_id"
+  - "lessons_learned_report_id"
+
+  jurisdiction: "project and portfolio management"
+  regulatory_scope: ["PMI PMBOK (guide-aligned)"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_c39e5f1da5
+  disclosure_banner: >
+    This system enforces PMBOK-aligned project governance: stage-gates,
+    baselines (scope/schedule/cost/quality), CCB change control, RAID logs,
+    benefits realization, and evidence for audits.
+  escalation_contact: "pmo@4th.is"
+  audit_profile_tag: "PMBOK"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_a8cd2ce45f
+  initiate:
+    project_charter_approved: true
+    sponsor_confirmed: true
+    stakeholder_register_created: true
+  plan:
+    pmp_master_plan_approved: true
+    baselines_set_and_versioned: true
+    risk_management_plan_approved: true
+    communications_and_procurement_plans_approved: true
+  execute:
+    iteration_plans_ready: true
+    definition_of_done_agreed: true
+    quality_assurance_activities_defined: true
+  monitor_and_control:
+    kpi_kri_dashboard_active: true
+    variance_analysis_running: true
+    ccb_change_process_active: true
+    risk_issue_dependency_reviews_cadenced: true
+  close:
+    acceptance_criteria_met: true
+    lessons_learned_completed: true
+    benefits_realization_review_scheduled: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+pmbok_focus:
+  integration:
+  - "Project charter, PMP, integrated change control"
+  scope_schedule_cost_quality:
+  - "Scope/WBS, scheduling/baselines, cost/budget, quality mgmt"
+  resource_and_comms:
+  - "Team plan, RASIC, communications management"
+  risk_procurement_stakeholder:
+  - "Risk mgmt plan/register, procurement plan/contracts, stakeholder engagement"
+  governance_and_benefits:
+  - "Stage gates, CCB, benefits realization, audit evidence"
+anchors:
+  variance_thresholds_d75c5271ce: *variance_thresholds_d75c5271ce
+  hil_policy_7716e6c693: *hil_policy_7716e6c693
+  severity_map_04cb804355: *severity_map_04cb804355
+  incident_thresholds_f5a09bcfa2: *incident_thresholds_f5a09bcfa2
+  params_c7cd376989: *params_c7cd376989
+  obligations_c39e5f1da5: *obligations_c39e5f1da5
+  checklists_a8cd2ce45f: *checklists_a8cd2ce45f

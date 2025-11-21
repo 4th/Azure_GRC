@@ -1,0 +1,52 @@
+# infra/container-images/policyengine-svc/containerapp.yaml
+#
+# Example Azure Container App spec for PolicyEngine.
+# This is a template — adjust resource group, environment, and
+# registry details for your subscription.
+
+apiVersion: 2024-03-01
+kind: ContainerApp
+metadata:
+  name: policyengine-svc
+  # namespace: optional
+  annotations:
+    managed-by: 4th-grc
+spec:
+  environmentId: /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RG_NAME>/providers/Microsoft.App/managedEnvironments/<ENV_NAME>
+  ingress:
+    external: true
+    targetPort: 8080
+    transport: auto
+  registryCredentials:
+    - server: <ACR_LOGIN_SERVER>          # e.g. myregistry.azurecr.io
+      username: <ACR_USERNAME>            # or use a managed identity in real setups
+      passwordSecretRef: acr-password
+  secrets:
+    - name: acr-password
+      value: "<ACR_PASSWORD_PLACEHOLDER>" # prefer Key Vault + managed identity in prod
+    - name: cosmos-endpoint
+      value: "<COSMOS_ENDPOINT_PLACEHOLDER>"
+    - name: cosmos-key
+      value: "<COSMOS_KEY_PLACEHOLDER>"
+    - name: openai-api-key
+      value: "<AZURE_OPENAI_API_KEY_PLACEHOLDER>"
+
+  template:
+    containers:
+      - name: policyengine-svc
+        image: <ACR_LOGIN_SERVER>/policyengine-svc:latest
+        resources:
+          cpu: 0.5
+          memory: 1Gi
+        env:
+          - name: COSMOS_ENDPOINT
+            secretRef: cosmos-endpoint
+          - name: COSMOS_KEY
+            secretRef: cosmos-key
+          - name: AZURE_OPENAI_API_KEY
+            secretRef: openai-api-key
+          - name: LOG_LEVEL
+            value: "INFO"
+    scale:
+      minReplicas: 1
+      maxReplicas: 3

@@ -1,0 +1,214 @@
+# =======================================================================
+#  policies/profiles/eu_ai_act-eu.yaml — EU AI Act Profile (EU)
+# -----------------------------------------------------------------------
+# Purpose
+#   Align agent behavior with the EU AI Act (risk-based approach):
+#   - Prohibited practices (not allowed)
+#   - High-risk systems (conformity assessment, risk mgmt, logging)
+#   - Limited-risk systems (transparency obligations)
+#   - Minimal risk (general-purpose/common use)
+#
+# Notes
+#   - EXTENDS ../base.yaml
+#   - Composes reusable rule modules in ../rules/*.yaml
+#   - Adds EU-specific obligations for transparency, human oversight,
+#     post-market monitoring, incident reporting, and registries.
+# =======================================================================
+
+profile: EU_AI_ACT_EU
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_039a02d6db
+  # --- Global stance ---
+  policy_enforcement_level: "strict"
+  human_review_required: true
+  allow_experimental_models: false
+  model_catalog_required: true
+  tool_allowlist_required: true
+
+  # --- EU AI Act risk model ---
+  risk_categories:
+    prohibited:
+    - "subliminal_techniques"                   # Annex I bans (illustrative)
+    - "exploiting_vulnerabilities"
+    - "generalised_biometric_categorisation_for_sensitive_attributes"
+    - "untargeted_scraping_biometrics"
+    high_risk:
+    - "biometric_identification_authentication"
+    - "employment_education_scoring"
+    - "essential_services_access_scoring"
+    - "credit_scoring"
+    - "migration_asylum_border_control"
+    - "justice_and_democratic_processes"
+    limited_risk:
+    - "chatbots_and_content_generation"         # transparency obligations
+    minimal_risk:
+    - "generic_search_help"
+    - "low_stakes_assistance"
+
+  # Used by rules to gate behaviors based on declared use case
+  declared_use_case_required: true
+
+  # --- Transparency obligations (limited-risk & GPAI) ---
+  disclosure_required: true
+  watermarking_required_for_ai_content: true     # where technically feasible
+  model_card_required: true                      # publish model info for GPAI
+  explainability_score_min: 0.70
+
+  # --- High-risk obligations ---
+  risk_management_system_required: true
+  data_governance_required: true                 # data quality, bias mgmt
+  technical_documentation_required: true
+  logging_enabled_required: true
+  human_oversight_measures_required: true
+  accuracy_robustness_cybersecurity_required: true
+  post_market_monitoring_required: true
+  incident_reporting_timeline_hours: 24          # serious incidents → notify within 24h
+
+  # --- Registries & conformity assessment (informative flags for ops) ---
+  eu_registry_entry_required: true               # for certain high-risk systems
+  conformity_assessment_required: true
+  ce_marking_expected: true
+
+  # --- Privacy & data protection (GDPR alignment) ---
+  pii_allowed: false
+  dpa_required_for_processors: true
+  data_residency_region: "EU"
+  cross_border_transfer: false                   # restrict unless SCCs/adequacy
+  data_retention_days: 30
+  log_retention_days: 180
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+
+  # --- KPIs & reliability ---
+  risk_cap: 0.60
+  bias_threshold: 0.15
+  error_rate_max: 0.03
+  latency_target_ms: 1800
+  token_cap: 40000
+  cost_cap_usd: 8.00
+  availability_target_pct: 99.5
+
+  # --- Lifecycle & monitoring ---
+  evaluation_interval_days: 30
+  retrain_cycle_days: 120
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_9d843e5ec9
+    low: {max: 0.35}
+    medium: {min: 0.35, max: 0.60}
+    high: {min: 0.60}
+
+  hil_policy: &hil_policy_17b3cdc92e
+    require_for:
+    - "input.kpis.risk_score >= 0.35"
+    - "input.args.get('contains_pii', False) == True"
+    - "input.intent in ['approve_payment','bulk_export','delete_record']"
+    - "input.use_case in params.risk_categories.high_risk"
+    approver_roles: ["human_oversight_officer", "compliance_officer"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_79b786abba
+    prohibited_use_detected: "critical"
+    model_not_approved: "high"
+    pii_not_allowed_for_this_profile: "critical"
+    transparency_missing: "high"
+    accuracy_below_threshold: "high"
+    encryption_not_enforced: "critical"
+    cross_border_blocked: "high"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.use_case"
+  - "input.user.role"
+  - "input.model.id"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "serious_incident_report_id"               # if opened
+
+  jurisdiction: "EU"
+  regulatory_scope: ["EU AI Act", "GDPR"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_6a4add1141
+  disclosure_banner: >
+    This system operates under an EU AI Act–aligned profile. It enforces
+    transparency, human oversight, post-market monitoring, and strict
+    data-protection requirements for EU deployments.
+  escalation_contact: "eu-ai-act@4th.is"
+  audit_profile_tag: "EU_AI_ACT_EU"
+  max_tokens: 1800
+  max_output_chars: 7000
+  require_watermarking: true
+  require_model_card: true
+  require_logging: true
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_b50d62cb6a
+  prohibited_practices_blocked: true
+  high_risk_controls_in_place:
+    risk_management_system: true
+    data_governance: true
+    technical_documentation: true
+    logging: true
+    human_oversight: true
+    post_market_monitoring: true
+  registry_and_conformity:
+    eu_registry_entry_recorded: true
+    conformity_assessment_completed: true
+    ce_marking_documented: true
+
+# -------------------------- EU AI Act crosswalk --------------------------
+eu_act_focus:
+  prohibited_practices:
+  - "Block Annex I prohibited uses (e.g., manipulative techniques)"
+  transparency_obligations:
+  - "Label AI-generated content; inform users interacting with AI"
+  - "Watermarking/model cards where technically feasible"
+  high_risk_requirements:
+  - "Risk mgmt, data governance, technical docs, logging, oversight"
+  - "Accuracy, robustness, cybersecurity"
+  - "Post-market monitoring and incident reporting (24h serious incidents)"
+  conformity_and_registry:
+  - "EU registry entry & conformity assessment; CE marking when required"
+anchors:
+  risk_bands_9d843e5ec9: *risk_bands_9d843e5ec9
+  hil_policy_17b3cdc92e: *hil_policy_17b3cdc92e
+  severity_map_79b786abba: *severity_map_79b786abba
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_039a02d6db: *params_039a02d6db
+  obligations_6a4add1141: *obligations_6a4add1141
+  checklists_b50d62cb6a: *checklists_b50d62cb6a

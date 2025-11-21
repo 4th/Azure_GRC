@@ -1,0 +1,74 @@
+# 4th.GRC – Agent Engine Settings
+# Centralized, environment-agnostic configuration for agent behavior.
+
+meta:
+  system_name: "4th.GRC Agent Engine"
+  owner: "Fourth Industrial Systems"
+  environment: "dev"          # dev | test | prod
+  version: "0.1.0"
+
+engine:
+  orchestrator: "semantic_kernel"   # semantic_kernel | langgraph | custom
+  telemetry_enabled: true
+  hitl_on_fail: true                # escalate to HITL when verdict = fail
+  hitl_on_warn: false               # optionally escalate on warnings
+  max_concurrent_runs: 5            # soft concurrency hint for schedulers
+
+defaults:
+  profile_ref: "iso_42001-global@1.2.0"
+  system_owner: "4th.GRC"
+  timezone: "UTC"
+  locale: "en-US"
+
+models:
+  # Default logical roles – should align with agent_profiles.yaml
+  chat: "default_chat"
+  planner: "planner"
+
+logging:
+  level: "INFO"        # DEBUG | INFO | WARNING | ERROR
+  log_prompts: false   # should match or complement agent_profiles.yaml safety settings
+  log_findings: true
+  redact_pii_in_logs: true
+
+safety:
+  pii_redaction: true
+  allow_model_card_uploads: true
+  require_profile_whitelist: true   # only allow known profile_refs
+  allowed_profiles:
+    - "iso_42001-global@1.2.0"
+    - "soc2_llm_internal@1.0.0"
+    - "nist_ai_rmfx_medical@0.1.0"
+
+hitl:
+  enable_teams: true
+  enable_jira: false
+  enable_servicenow: false
+  # These map to environment variables in tools/hitl_tool.py
+  channels:
+    teams:
+      min_severity: "high"   # low | medium | high | critical
+    jira:
+      min_severity: "critical"
+    servicenow:
+      min_severity: "critical"
+
+policyengine:
+  # High-level defaults for agents when calling PolicyEngine
+  base_url_env: "POLICYENGINE_URL"
+  timeout_seconds: 60
+  max_retries: 3
+  backoff_seconds: 2
+  require_tls: false        # set true in prod if using https only
+
+evidence:
+  # Global hints for evidence discovery and use
+  enable_discovery: true
+  sources:
+    logs: true
+    metrics: true
+    documents: true
+    model_cards: true
+  require_min_sources: 1
+  # When true, agents are allowed to proceed with partial evidence
+  allow_partial_evidence: true

@@ -1,0 +1,123 @@
+ # infra/pipelines/azure-devops/deploy-policyengine.yml
+# Azure DevOps pipeline to build & deploy the PolicyEngine service
+
+trigger:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - services/policyengine_svc/*
+      - infra/container-images/policyengine-svc/*
+      - infra/scripts/*
+      - infra/pipelines/azure-devops/deploy-policyengine.yml
+
+pr:
+  branches:
+    include:
+      - main
+  paths:
+    include:
+      - services/policyengine_svc/*
+      - infra/container-images/policyengine-svc/*
+      - infra/scripts/*
+      - infra/pipelines/azure-devops/deploy-policyengine.yml
+
+variables:
+  # Container image settings
+  imageName: 'policyengine-svc'
+  dockerfilePath: 'infra/container-images/policyengine-svc/Dockerfile'
+
+  # Tag strategy: use the commit SHA; change to 'latest' or semantic version if desired
+  imageTag: '$(Build.SourceVersion)'
+
+  # Azure Container Registry (ACR)
+  containerRegistry: '<your-registry>.azurecr.io'   # e.g. 4thgrcdev.azurecr.io
+
+  # Azure resources
+  azureSubscription: '<AZURE_SERVICE_CONNECTION_NAME>'  # Service connection name in AzDO
+  resourceGroup: '<RESOURCE_GROUP_NAME>'                # e.g. 4th-grc-dev-rg
+  containerAppEnv: '<CONTAINER_APPS_ENVIRONMENT_NAME>'  # e.g. 4th-grc-dev-env
+  containerAppName: 'policyengine-svc'
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+stages:
+  - stage: BuildAndPush
+    displayName: 'Build and Push PolicyEngine Image'
+    jobs:
+      - job: BuildPush
+        displayName: 'Build & Push Docker Image'
+        steps:
+          - checkout: self
+
+          - task: DockerInstaller@0
+            displayName: 'Install Docker (if needed)'
+
+          - task: Docker@2
+            displayName: 'Login to ACR'
+            inputs:
+              command: 'login'
+              containerRegistry: '$(containerRegistry)'
+              # If you use a Docker service connection, specify it here, e.g.:
+              # containerRegistry: '<DOCKER_SERVICE_CONNECTION_NAME>'
+
+          - script: |
+              echo "Building image $(containerRegistry)/$(imageName):$(imageTag)"
+              docker build \
+                -t $(containerRegistry)/$(imageName):$(imageTag) \
+                -f $(dockerfilePath) .
+            displayName: 'Build Docker image'
+
+          - script: |
+              echo "Pushing image $(containerRegistry)/$(imageName):$(imageTag)"
+              docker push $(containerRegistry)/$(imageName):$(imageTag)
+            displayName: 'Push Docker image'
+
+  - stage: Deploy
+    displayName: 'Deploy PolicyEngine to Azure Container Apps'
+    dependsOn: BuildAndPush
+    jobs:
+      - job: DeployJob
+        displayName: 'Deploy to Azure Container Apps'
+        steps:
+          - checkout: self
+
+          - task: AzureCLI@2
+            displayName: 'Deploy/update Container App'
+            inputs:
+              azureSubscription: '$(azureSubscription)'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                set -e
+
+                echo "Ensuring Azure Container Apps extension is installed..."
+                az extension add --name containerapp --yes || az extension update --name containerapp
+
+                IMAGE="$(containerRegistry)/$(imageName):$(imageTag)"
+
+                echo "Attempting to update Container App $(containerAppName) in RG $(resourceGroup)..."
+                if az containerapp show \
+                     --name "$(containerAppName)" \
+                     --resource-group "$(resourceGroup)" >/dev/null 2>&1; then
+
+                  az containerapp update \
+                    --name "$(containerAppName)" \
+                    --resource-group "$(resourceGroup)" \
+                    --image "$IMAGE" \
+                    --output table
+                else
+                  echo "Container App not found; creating new container app $(containerAppName)..."
+                  az containerapp create \
+                    --name "$(containerAppName)" \
+                    --resource-group "$(resourceGroup)" \
+                    --environment "$(containerAppEnv)" \
+                    --image "$IMAGE" \
+                    --target-port 8080 \
+                    --ingress external \
+                    --min-replicas 1 \
+                    --max-replicas 3 \
+                    --output table
+                fi

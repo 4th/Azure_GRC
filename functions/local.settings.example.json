@@ -1,0 +1,11 @@
+python -m venv .venv
+# Windows PowerShell:
+.venv\Scripts\Activate.ps1
+# or cmd:
+.venv\Scripts\activate.bat
+
+pip install -r requirements.txt
+copy local.settings.example.json local.settings.json
+# edit local.settings.json with real values
+
+func start

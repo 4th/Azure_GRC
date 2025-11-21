@@ -1,0 +1,198 @@
+# =======================================================================
+#  policies/profiles/gdpr-eu.yaml — GDPR (EU) Data Protection Profile
+# -----------------------------------------------------------------------
+# Purpose
+#   Align agent behavior with GDPR principles and obligations:
+#   lawfulness, fairness & transparency; purpose limitation; data minimization;
+#   accuracy; storage limitation; integrity & confidentiality; accountability.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules in ../rules/*.yaml.
+#   - Parameters emphasize lawful basis, DPIA, DPA/SCCs, residency,
+#     subject rights, breach notification, and logging for accountability.
+# =======================================================================
+
+profile: GDPR_EU
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_e6c3f68223
+  # --- Core GDPR posture ---
+  policy_enforcement_level: "strict"
+  pii_allowed: true                              # GDPR allows PII with lawful basis
+  special_category_data_allowed: false           # default: disallow (Art.9)
+  children_processing_default_disallowed: true   # enable only with safeguards
+  lawful_basis_required: true                    # consent, contract, legal_obligation, vital_interests, public_task, legitimate_interests
+  record_of_processing_required: true            # RoPA (Art.30)
+  dpia_required_for_high_risk: true              # DPIA (Art.35)
+  dpo_contact_defined: true                      # DPO or privacy contact
+
+  # --- Lawful basis defaults (can be provided in input.context.lawful_basis) ---
+  allowed_lawful_bases: ["consent", "contract", "legal_obligation", "vital_interests", "public_task", "legitimate_interests"]
+  consent_management_enabled: true
+  consent_refresh_days: 365
+
+  # --- Purpose limitation & minimization ---
+  purpose_declared_required: true
+  data_minimization_required: true
+  pseudonymization_preferred: true
+  anonymization_required_for_analytics: false     # set true if analytics should be anon-only
+
+  # --- Data subject rights & timelines ---
+  dsar_channels_configured: true                  # access, rectification, erasure, restriction, portability, object
+  dsar_response_sla_days: 30
+  automated_decisioning_optout_enabled: true      # Art.22 safeguards
+
+  # --- Security, integrity & confidentiality (Art.32) ---
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  breach_notification_timeline_hours: 72          # notify SA within 72h where required
+  processor_security_due_diligence_required: true
+
+  # --- Processors & cross-border transfers ---
+  dpa_required_for_processors: true               # Art.28 DPA
+  data_residency_region: "EU"
+  cross_border_transfer: false                    # default: no transfers
+  sccs_required_if_transferring: true             # Standard Contractual Clauses if allowed
+  transfer_impact_assessment_required: true
+
+  # --- Storage limitation ---
+  data_retention_days: 30
+  log_retention_days: 180
+  deletion_grace_days: 7                          # time to effect erasure after approval
+
+  # --- KPIs & reliability (operational governance, not GDPR articles) ---
+  risk_cap: 0.60
+  bias_threshold: 0.15
+  explainability_score_min: 0.70
+  token_cap: 40000
+  cost_cap_usd: 8.00
+  latency_target_ms: 1800
+  error_rate_max: 0.03
+  availability_target_pct: 99.5
+
+  # --- Lifecycle & monitoring ---
+  evaluation_interval_days: 30
+  retrain_cycle_days: 120
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_9d843e5ec9
+    low: {max: 0.35}
+    medium: {min: 0.35, max: 0.60}
+    high: {min: 0.60}
+
+  hil_policy: &hil_policy_95ec50a6ab
+    require_for:
+    - "input.kpis.risk_score >= 0.35"
+    - "input.args.get('contains_pii', False) == True"
+    - "input.context.get('lawful_basis') not in params.get('allowed_lawful_bases', [])"
+    - "input.intent in ['bulk_export','delete_record']"
+    approver_roles: ["privacy_officer", "dpo", "compliance_officer"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_2e4f34f374
+    lawful_basis_missing: "critical"
+    consent_missing_or_invalid: "high"
+    dpia_required_missing: "high"
+    vendor_dpa_missing: "high"
+    cross_border_blocked: "high"
+    encryption_not_enforced: "critical"
+    transparency_missing: "moderate"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.context.lawful_basis"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "ropa_id"                       # Record of Processing Activity entry
+  - "dpia_id"                       # DPIA ticket/record
+  - "dpa_contract_id"               # processor DPA
+  - "scc_record_id"                 # SCCs/transfer documentation
+
+  jurisdiction: "EU"
+  regulatory_scope: ["GDPR (2016/679)", "EU AI Act (reference)"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_c4cb68a4c6
+  disclosure_banner: >
+    This system operates under a GDPR-aligned profile. It enforces lawful basis,
+    purpose limitation, data minimization, security, and data-subject rights.
+  escalation_contact: "privacy@4th.is"
+  audit_profile_tag: "GDPR_EU"
+  max_tokens: 1800
+  max_output_chars: 7000
+  dsar_supported: true
+  breach_notification_deadline_hours: 72
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_3c1e5e5bd6
+  accountability_art5_2:
+    roles_and_responsibilities_defined: true
+    record_of_processing_maintained: true
+    data_protection_training_completed: true
+  subject_rights:
+    dsar_process_documented: true
+    erasure_and_restriction_workflows_configured: true
+    portability_and_objection_workflows_configured: true
+  transfer_controls:
+    dpa_signed_with_processors: true
+    sccs_in_place_if_xborder: true
+    tia_completed_if_xborder: true
+
+# ------------------------------ Crosswalk (informative) ------------------
+gdpr_focus:
+  principles_art5:
+  - "Lawfulness, fairness, transparency"
+  - "Purpose limitation, data minimization, accuracy"
+  - "Storage limitation, integrity & confidentiality, accountability"
+  rights_data_subject:
+  - "Access, rectification, erasure, restriction, portability, object"
+  - "Automated decisioning safeguards (Art.22)"
+  controllers_processors:
+  - "DPAs with processors (Art.28); RoPA (Art.30); DPIA (Art.35); DPO (Arts.37–39)"
+  international_transfers:
+  - "Adequacy, SCCs, binding corporate rules; TIA documentation"
+anchors:
+  risk_bands_9d843e5ec9: *risk_bands_9d843e5ec9
+  hil_policy_95ec50a6ab: *hil_policy_95ec50a6ab
+  severity_map_2e4f34f374: *severity_map_2e4f34f374
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_e6c3f68223: *params_e6c3f68223
+  obligations_c4cb68a4c6: *obligations_c4cb68a4c6
+  checklists_3c1e5e5bd6: *checklists_3c1e5e5bd6

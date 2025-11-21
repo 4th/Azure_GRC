@@ -1,0 +1,113 @@
+{
+  "last_updated": "2025-11-11T03:02:05Z",
+  "rules": [
+    {
+      "id": "bias_fairness",
+      "path": "rules/bias_fairness.yaml",
+      "version": "1.0.0",
+      "sha256": "4a277b7404709e169456628645117163567e276fd2f26dc0f3c2480ecfb57ba1"
+    },
+    {
+      "id": "change_management",
+      "path": "rules/change_management.yaml",
+      "version": "1.0.0",
+      "sha256": "84dd2fdf2f207ef8414d629aded693bba1e7b1b397aad15dca3a49bfd02ad4e5"
+    },
+    {
+      "id": "cost_budget",
+      "path": "rules/cost_budget.yaml",
+      "version": "1.0.0",
+      "sha256": "a8a11d517e992bf1a6af7694d0dff5eef440a94f551edadc536f30f96e0a2fb7"
+    },
+    {
+      "id": "data_residency",
+      "path": "rules/data_residency.yaml",
+      "version": "1.0.0",
+      "sha256": "b93cb03178550b5c8e2b6f07c67086a22765c1c5ebe0b60011169bb775a0871f"
+    },
+    {
+      "id": "encryption",
+      "path": "rules/encryption.yaml",
+      "version": "1.0.0",
+      "sha256": "461cf3d03bd373fa2d02b65bf8dd47b0975bb5b97e9ee67dc5d8b6dce7f103fa"
+    },
+    {
+      "id": "human_review",
+      "path": "rules/human_review.yaml",
+      "version": "1.0.0",
+      "sha256": "cfdcb14f89dde4dc9c93e183c660161cf76a746ea4f72ba32aa2cab99f5ae628"
+    },
+    {
+      "id": "incident_response",
+      "path": "rules/incident_response.yaml",
+      "version": "1.0.0",
+      "sha256": "b5dd037c279f9f70b9aedf215c0788923e19ed420d8a2014b285505005fcc343"
+    },
+    {
+      "id": "kpi_limits",
+      "path": "rules/kpi_limits.yaml",
+      "version": "1.0.0",
+      "sha256": "77df340c197dde361cc52d443eac806c8b0a2c6282098b4dc188010e126a229b"
+    },
+    {
+      "id": "lifecycle",
+      "path": "rules/lifecycle.yaml",
+      "version": "1.0.0",
+      "sha256": "9dfa3550a1ab1fa4656ecb9a4ac5a8bfd498c82a97c86a8fde34949be629c374"
+    },
+    {
+      "id": "logging_audit",
+      "path": "rules/logging_audit.yaml",
+      "version": "1.0.0",
+      "sha256": "24d2512d9db6bc25ecefde2d907ba7b8b8fcad4e9abbdcf4f60a8737511ead77"
+    },
+    {
+      "id": "model_allowlist",
+      "path": "rules/model_allowlist.yaml",
+      "version": "1.0.0",
+      "sha256": "6f1786ad9460ff80ca09b3a145d949679beb7974b1f6b99e952f7d05f8cd95ba"
+    },
+    {
+      "id": "network_egress",
+      "path": "rules/network_egress.yaml",
+      "version": "1.0.0",
+      "sha256": "a7c72b561dd44d2d736900ba64faf781d42e46cd19dfe2de4d98fbda6d667795"
+    },
+    {
+      "id": "output_guardrails",
+      "path": "rules/output_guardrails.yaml",
+      "version": "1.0.0",
+      "sha256": "d3166951e617c32231b523263ed3a20d5bd95ff18e0ac121fa728b82e0e66908"
+    },
+    {
+      "id": "pii",
+      "path": "rules/pii.yaml",
+      "version": "1.0.0",
+      "sha256": "2fae1ffc7b55ae815c931e187ee13a0bb08cae4fca1dafd19c850843cdd762ec"
+    },
+    {
+      "id": "rbac",
+      "path": "rules/rbac.yaml",
+      "version": "1.0.0",
+      "sha256": "5bb771a6dcdaba6f776371415646ee4d296dbece9fa2af29ac9278265c4df68e"
+    },
+    {
+      "id": "supplier_risk",
+      "path": "rules/supplier_risk.yaml",
+      "version": "1.0.0",
+      "sha256": "bbee72e86bebba052f9cf7458acb272e17466b99e5662af079dd5785f14219a7"
+    },
+    {
+      "id": "tool_allowlist",
+      "path": "rules/tool_allowlist.yaml",
+      "version": "1.0.0",
+      "sha256": "6eb8b84d16d489fb5d0b727991cd6b067d3dacee6593bd4153c0bacb789f308a"
+    },
+    {
+      "id": "transparency",
+      "path": "rules/transparency.yaml",
+      "version": "1.0.0",
+      "sha256": "429d125b4cc99f61896985be8a28042874d0381686a9d7a884a241434ab64d18"
+    }
+  ]
+}

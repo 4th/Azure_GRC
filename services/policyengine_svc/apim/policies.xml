@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  4th.GRC PolicyEngine API
+  Azure API Management Policy Configuration (policies.xml)
+
+  Purpose:
+    - Define gateway-level behavior for the PolicyEngine HTTP API.
+    - Provide a single place to manage auth, routing, CORS, rate limiting,
+      and response shaping for external and internal consumers.
+    - Align APIM behavior with the FastAPI service, OpenAPI contract, and
+      4th.GRC governance architecture.
+
+  Notes:
+    - This file is consumed only by Azure API Management.
+    - It does NOT change the FastAPI implementation; it wraps it at the gateway.
+    - Update this file in lockstep with changes to the backend URL, auth model,
+      or public API surface.
+    - Last updated: 2025-11-13
+-->
+
+<policies>
+  <inbound>
+    <!--
+      INBOUND PIPELINE
+
+      Typical responsibilities:
+        - Validate caller identity (subscription key, JWT, etc.).
+        - Enforce rate limits and quotas.
+        - Normalize headers or add correlation IDs.
+        - Rewrite incoming paths to the backend service route.
+    -->
+
+    <base />
+
+    <!--
+      Example: subscription key enforcement (uncomment and configure if used)
+      <check-header name="Ocp-Apim-Subscription-Key" failed-check-httpcode="401"
+                    failed-check-error-message="Subscription key missing.">
+        <exists />
+      </check-header>
+    -->
+
+    <!--
+      Example: JWT validation for protected operations
+      <validate-jwt header-name="Authorization" require-scheme="Bearer">
+        <issuer-signing-keys>
+          <key>YOUR-KEY-HERE</key>
+        </issuer-signing-keys>
+        <audiences>
+          <audience>YOUR-AUDIENCE-HERE</audience>
+        </audiences>
+        <issuers>
+          <issuer>https://login.microsoftonline.com/YOUR-TENANT-ID/v2.0</issuer>
+        </issuers>
+      </validate-jwt>
+    -->
+
+    <!--
+      Example: backend route rewrite
+      Use when the APIM public path differs from the backend service path.
+      <set-backend-service base-url="https://policyengine-svc.azurecontainerapps.io" />
+    -->
+  </inbound>
+
+  <backend>
+    <!--
+      BACKEND PIPELINE
+
+      This section is typically left as <base /> unless you need to:
+        - Dynamically switch backend services.
+        - Add backend-specific headers.
+        - Implement custom routing logic.
+    -->
+    <base />
+  </backend>
+
+  <outbound>
+    <!--
+      OUTBOUND PIPELINE
+
+      Typical responsibilities:
+        - Strip or transform sensitive headers from responses.
+        - Add correlation IDs or telemetry headers.
+        - Map backend error shapes into standardized API responses.
+        - Implement response caching for safe, idempotent endpoints if needed.
+    -->
+
+    <base />
+
+    <!--
+      Example: remove backend-specific headers from responses
+      <set-header name="X-Powered-By" exists-action="delete" />
+    -->
+  </outbound>
+
+  <on-error>
+    <!--
+      ERROR PIPELINE
+
+      This section runs when any previous policy or backend call fails.
+      Use it to:
+        - Produce a consistent error envelope.
+        - Log additional diagnostic details (careful with PII).
+        - Map internal errors to client-friendly HTTP codes/messages.
+    -->
+
+    <base />
+
+    <!--
+      Example: wrap errors in a standard JSON envelope
+      <set-body>@{
+          return {
+            "error": "gateway_error",
+            "message": context.LastError.Message,
+            "source": context.LastError.Source
+          };
+      }</set-body>
+    -->
+  </on-error>
+</policies>

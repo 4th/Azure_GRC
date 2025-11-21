@@ -1,0 +1,31 @@
+# Defines LLM/agent endpoints, tools, and rate limits for 4th.GRC agents
+models:
+  default_chat:
+    provider: azure_openai
+    deployment: gpt-4o-mini
+    api_version: 2024-06-01
+    rate_limit_rps: 2
+  planner:
+    provider: azure_openai
+    deployment: gpt-4o
+    api_version: 2024-06-01
+    rate_limit_rps: 1
+
+tools:
+  - name: policyengine.evaluate
+    module: agents.tools.policyengine_tool:PolicyEngineTool
+    args: {}
+  - name: evidence.discover
+    module: agents.tools.evidence_tool:discover_evidence
+    args: {}
+  - name: hitl.notify_teams
+    module: agents.tools.hitl_tool:notify_teams
+    args: {}
+
+policies:
+  retries:
+    max_attempts: 3
+    backoff_seconds: 2
+  safety:
+    pii_redaction: true
+    log_prompts: false

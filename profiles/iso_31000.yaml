@@ -1,0 +1,208 @@
+# =======================================================================
+#  policies/profiles/iso_31000.yaml — ISO 31000 Risk Principles & Thresholds
+# -----------------------------------------------------------------------
+# Purpose
+#   Operationalize ISO 31000:2018 principles for risk management within
+#   an Agentic AI governance stack. Focus on: integration with governance,
+#   structured risk criteria, treatment options, and continual improvement.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses shared rule modules in ../rules/*.yaml.
+#   - Tune thresholds to enterprise context and risk appetite.
+# =======================================================================
+
+profile: ISO_31000
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_295cee087e
+  # --- Principles & integration ---
+  policy_enforcement_level: "strict"
+  integrated_with_governance: true
+  custom_context_defined: true               # internal/external context documented
+  stakeholder_criteria_defined: true
+  risk_owner_assigned: true
+  continual_improvement_enabled: true
+
+  # --- Risk criteria (likelihood x consequence) ---
+  likelihood_scale:
+    very_low: 0.05
+    low: 0.15
+    medium: 0.35
+    high: 0.65
+    very_high: 0.85
+  consequence_scale:
+    negligible: 0.05
+    minor: 0.15
+    moderate: 0.35
+    major: 0.65
+    severe: 0.85
+
+  weighting:
+    likelihood_weight: 0.5
+    consequence_weight: 0.5
+    regulatory_multiplier: 1.2
+    safety_multiplier: 1.4
+    reputation_multiplier: 1.1
+
+  # --- Risk acceptance criteria (bands) ---
+  risk_bands: &risk_bands_be1291cb31
+    low: {max: 0.30}                # acceptable
+    medium: {min: 0.30, max: 0.60}   # tolerable with treatment
+    high: {min: 0.60}               # unacceptable without management action
+
+  acceptance_matrix:
+    low: "accept"
+    medium: "treat_and_monitor"
+    high: "avoid_or_transfer"
+
+  # --- Treatment options & plans ---
+  treatment_options: ["avoid", "reduce", "share", "retain"]
+  treatment_plan_required_for:
+  - "result.risk_level == 'medium'"
+  - "result.risk_level == 'high'"
+  risk_register_update_required: true
+  residual_risk_must_be_within_appetite: true
+
+  # --- Appetite & tolerance (contextual overlay) ---
+  appetite: &appetite_b43665530e
+    operational: 0.55
+    compliance: 0.40
+    financial: 0.45
+    safety: 0.30
+    reputation: 0.40
+  tolerance_pct_over_appetite: 10
+
+  # --- KPI / KRI hooks (informative -> risk) ---
+  kris:
+  - "incident_rate_30d"
+  - "bias_metric_delta"
+  - "model_drift_score"
+  - "sla_breach_count"
+  - "security_findings_open"
+  kpi_to_risk_map:
+    error_rate_max: 0.03
+    latency_target_ms: 1800
+    availability_target_pct: 99.5
+
+  # --- Operational caps ---
+  risk_cap: 0.65
+  token_cap: 45000
+  cost_cap_usd: 9.00
+  latency_target_ms: 1800
+  bias_threshold: 0.15
+  explainability_score_min: 0.70
+  log_retention_days: 365
+  data_retention_days: 30
+
+  # --- HIL & escalation ---
+  hil_policy: &hil_policy_abafefae3a
+    require_for:
+    - "input.kpis.risk_score >= 0.40"
+    - "input.intent in ['bulk_export','delete_record','change_release']"
+    - "any(x in input.context.get('domains', []) for x in ['safety','compliance'])"
+    approver_roles: ["risk_owner", "service_owner", "compliance_officer"]
+    timeout_seconds: 900
+
+  # --- Severity mapping ---
+  severity_map: &severity_map_1eb688235b
+    risk_acceptance_without_plan: "high"
+    risk_appetite_exceeded: "high"
+    transparency_missing: "moderate"
+    change_not_approved: "high"
+    encryption_not_enforced: "critical"
+
+  # --- Review cadence ---
+  risk_review_cadence_days: 90
+  lessons_learned_required_post_incident: true
+  thresholds_review_after_change: true
+
+  # --- Evidence fields ---
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.kpis.risk_score"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "risk_treatment_plan_id"
+  - "risk_register_item_id"
+  - "next_review_date"
+
+  jurisdiction: "enterprise risk management"
+  regulatory_scope: ["ISO 31000:2018"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_fbfa768450
+  disclosure_banner: >
+    This system applies ISO 31000-aligned risk criteria, treatment options,
+    and acceptance thresholds; medium/high risks require plans and monitoring.
+  escalation_contact: "risk@4th.is"
+  audit_profile_tag: "ISO_31000"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_5fd297b6a9
+  principles_and_framework:
+    integrated_with_governance: true
+    context_documented: true
+    stakeholder_criteria_defined: true
+    continual_improvement_process_active: true
+  risk_assessment:
+    likelihood_consequence_scales_defined: true
+    heatmap_configured: true
+    acceptance_criteria_approved: true
+  treatment_and_monitoring:
+    treatment_options_documented: true
+    plans_required_for_medium_high: true
+    residual_risk_checked_against_appetite: true
+    monitoring_and_review_cadence_defined: true
+  communication_and_reporting:
+    risk_register_maintained: true
+    reporting_lines_defined: true
+    escalation_paths_documented: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+iso_31000_focus:
+  principles:
+  - "Integrated, structured, customized, inclusive, dynamic, best information, human & cultural factors, continual improvement"
+  framework:
+  - "Leadership & commitment, integration, design, implementation, evaluation, improvement"
+  process:
+  - "Communication & consultation, scope/context/criteria, risk assessment, treatment, monitoring & review, recording & reporting"
+anchors:
+  risk_bands_be1291cb31: *risk_bands_be1291cb31
+  appetite_b43665530e: *appetite_b43665530e
+  hil_policy_abafefae3a: *hil_policy_abafefae3a
+  severity_map_1eb688235b: *severity_map_1eb688235b
+  params_295cee087e: *params_295cee087e
+  obligations_fbfa768450: *obligations_fbfa768450
+  checklists_5fd297b6a9: *checklists_5fd297b6a9

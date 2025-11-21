@@ -1,0 +1,103 @@
+rule_id: model_allowlist
+version: 1.0.0
+title: Model Allowlist
+description: Only approved models may be used in production workloads.
+engine_op: allowlist_only
+metadata:
+  owner: Fourth Industrial Systems
+  category: governance
+  tags:
+  - allowlist
+  - models
+  last_reviewed: '2025-11-11'
+inputs:
+  required_evidence:
+  - type: blob_uri
+    pattern: inventory/models/*.json
+  params:
+    allowlist:
+    - gpt-4o
+    - claude-3-sonnet
+    - gpt-4o-mini
+    exceptions: []
+outputs:
+  pass_criteria: len(NONCOMPLIANT_MODELS)==0
+  signals:
+  - NONCOMPLIANT_MODELS
+  - TOTAL_MODELS
+remediation:
+  playbook: model_access_control@v1
+  guidance: Block non-allowlisted models via APIM/egress controls.
+rationale:
+  business_value: Reduces regulatory, ethical, and operational risk; improves trust
+    and audit readiness.
+  threats_mitigated:
+  - Regulatory non-compliance
+  - Data leakage
+  - Unfair outcomes
+  - Service disruptions
+severity_mapping:
+  pass:
+    severity: info
+    action: record
+  warn:
+    severity: medium
+    action: monitor_and_plan
+  fail:
+    severity: high
+    action: remediate_or_block
+scoring:
+  weight_default: 0.05
+  calculation: 1.0 for pass; 0.5 for warn; 0.0 for fail
+  aggregation: weighted_mean_across_controls
+exemptions:
+  allowed: true
+  policy: Temporary exemptions require risk acceptance and expiration date.
+  required_approvals:
+  - Product Owner
+  - GRC Lead
+  max_duration_days: 90
+  ticket_system: Jira
+audit:
+  record_fields:
+  - control_id
+  - rule_id
+  - status
+  - rationale
+  - signals
+  - evidence_refs
+  - timestamp
+  - actor
+  retention_days: 3650
+hitl:
+  enabled: true
+  channels:
+  - Teams
+  - Jira
+  sla_hours: 24
+  override_requires_reason: true
+alerts:
+  routes:
+  - email:grc@4th.is
+  - teams:#grc-alerts
+  dedup_window_minutes: 60
+evaluation:
+  logic_notes: Engine computes signals from evidence; evaluates pass_criteria; maps
+    to status; emits Finding with signals and remediation.
+  pseudocode:
+  - signals = compute_signals(evidence, params)
+  - status = evaluate(pass_criteria, signals, params)
+  - emit_finding(status, rationale, signals, remediation)
+evidence_schemas:
+  blob_uri.json:
+    hint: JSON array or object with fields referenced by the rule (see signals)
+  inline.json:
+    hint: Direct JSON payload provided by agent/evaluator
+examples:
+  good: All metrics within thresholds; complete artifacts; no violations found.
+  bad: Missing audit logs and TLS <1.2 on one endpoint; non-allowlisted model detected.
+risk_context:
+  impact: Use of unvetted models increases risk
+  likelihood: Medium
+signals_details:
+  NONCOMPLIANT_MODELS: Models not on allowlist

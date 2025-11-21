@@ -1,0 +1,218 @@
+# =======================================================================
+#  policies/profiles/defense.yaml — Defense & Aerospace Overlay
+# -----------------------------------------------------------------------
+# Purpose
+#   Sector profile for defense/aerospace environments referencing:
+#   - DoD AI Ethical Principles (Responsible, Equitable, Traceable, Reliable, Governable)
+#   - NIST SP 800-171 / CMMC 2.0 practices for CUI
+#   - DoD IL2/IL4/IL5/IL6 impact levels & mission assurance overlays
+#   - Export controls (ITAR/EAR), supply chain security, SBOM, zero trust
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - This is an operational overlay; coordinate with your AO/SISO/PSO.
+# =======================================================================
+
+profile: DEFENSE_AEROSPACE
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_89b1a1233a
+  # --- Mission posture & impact levels ---
+  policy_enforcement_level: "strict"
+  dod_impact_level: "IL5"                          # IL2/IL4/IL5/IL6
+  mission_criticality: "high"
+  deny_by_default_on_failure: true
+
+  # --- CUI & classification handling (NIST 800-171/CMMC) ---
+  cui_allowed: true
+  classified_data_allowed: false                   # no classified data unless accredited
+  declassification_controls_required: true
+  nist_800_171_controls_required: true
+  cmmc_practice_level: 2                           # 1/2/3 (approximate CMMC 2.0 levels)
+  access_control_cui_strict: true                  # AC family enforced
+  auditing_required: true                          # AU family
+  configuration_management_required: true          # CM family
+  identification_authentication_strict: true       # IA family
+  incident_reporting_timeline_hours: 24            # IR family
+
+  # --- Export controls (ITAR/EAR) ---
+  itar_data_flag_enabled: true
+  ear99_control_flag_enabled: true
+  foreign_person_access_restricted: true
+  export_jurisdiction_required: true               # set input.context.export_jurisdiction
+  export_authorization_required: true              # license/TAAs if needed
+
+  # --- Zero Trust & network posture ---
+  zero_trust_required: true
+  network_segmentation_required: true
+  egress_filtering_required: true
+  allowed_domains_cage_code_vetted_only: true
+
+  # --- Encryption & key management ---
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  fips_140_3_only: true
+  key_management_process_defined: true
+  hsm_or_kms_required_for_keys: true
+
+  # --- Supply chain & provenance ---
+  sbom_required: true
+  sscd_attestation_required: true                  # software supply chain attestation
+  provenance_tracking_required: true
+  tamper_evidence_required: true
+  vendor_cage_code_required: true
+  dod_authorized_cloud_required: true              # e.g., IL4/IL5 authorized regions
+
+  # --- Human control / safety (DoD AI Ethics) ---
+  human_review_required: true
+  human_override_capability_required: true
+  fail_safe_behavior_defined: true
+  bias_threshold: 0.10
+  explainability_score_min: 0.75
+  traceability_required: true                      # data/model/decision traceability
+
+  # --- Residency, PII/PHI, and logs ---
+  pii_allowed: true                                # within constraints
+  data_residency_region: "us-only"
+  cross_border_transfer: false
+  log_retention_days: 365
+  data_retention_days: 30
+
+  # --- KPIs & reliability ---
+  risk_cap: 0.50
+  token_cap: 38000
+  cost_cap_usd: 8.00
+  latency_target_ms: 1500
+  error_rate_max: 0.02
+  availability_target_pct: 99.9
+
+  # --- Lifecycle & monitoring ---
+  evaluation_interval_days: 30
+  retrain_cycle_days: 180
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_d8df7dee31
+    low: {max: 0.30}
+    medium: {min: 0.30, max: 0.50}
+    high: {min: 0.50}
+
+  hil_policy: &hil_policy_8af4ee9a00
+    require_for:
+    - "input.kpis.risk_score >= 0.30"
+    - "input.args.get('contains_cui', False) == True"
+    - "input.args.get('contains_itar', False) == True"
+    - "input.intent in ['release_export','deploy_to_ops','bulk_export','delete_record']"
+    - "input.context.get('classification') in ['CUI','SECRET','TOP_SECRET']"
+    approver_roles: ["ao_delegate", "program_security_officer", "export_control_officer"]
+    timeout_seconds: 1800
+
+  severity_map: &severity_map_9c0fa26d54
+    export_control_violation: "critical"
+    itar_data_access_by_foreign_person: "critical"
+    classified_data_detected: "critical"
+    encryption_not_enforced: "critical"
+    nist_800_171_control_gap: "high"
+    sbom_missing: "high"
+    transparency_missing: "moderate"
+
+  incident_thresholds: &incident_thresholds_2a12963227
+    consecutive_denies_for_user: {count: 2, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 3, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.context.classification"
+  - "input.context.export_jurisdiction"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "cage_code"
+  - "sbom_id"
+  - "ao_ato_package_id"
+
+  jurisdiction: "US defense"
+  regulatory_scope: ["DoD AI Ethical Principles", "NIST SP 800-171", "CMMC 2.0", "ITAR/EAR", "DoD Cloud IL policies"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_bf8a860b9b
+  disclosure_banner: >
+    This system applies DoD ethics, NIST 800-171/CMMC practices for CUI,
+    zero trust, export controls (ITAR/EAR), and provenance requirements.  Operations default to deny on failure; HIL and audit are enforced.
+  escalation_contact: "security-ao@4th.is"
+  audit_profile_tag: "DEFENSE_AEROSPACE"
+  max_tokens: 1700
+  max_output_chars: 6500
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_206d874cdf
+  cui_and_classification:
+    cui_markings_present: true
+    classification_handling_procedures_defined: true
+    declassification_controls_in_place: true
+  export_controls:
+    export_jurisdiction_determined: true
+    foreign_person_access_controls_enforced: true
+    export_authorizations_documented: true
+  zero_trust_and_crypto:
+    zero_trust_architecture_in_place: true
+    fips_140_3_crypto_enforced: true
+    key_management_sop_defined: true
+  supply_chain_and_cloud:
+    sbom_available: true
+    sscd_attestations_collected: true
+    dod_authorized_cloud_region_in_use: true
+  governance_and_assurance:
+    nist_800_171_assessment_current: true
+    cmmc_level_attested: true
+    ao_or_daa_engaged_for_ato: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+defense_focus:
+  dod_ai_ethics:
+  - "Responsible, Equitable, Traceable, Reliable, Governable (Feb 2020)"
+  nist_800_171_cmmc:
+  - "CUI protection families (AC, AU, CM, IA, IR, MP, PE, PL, PM, RA, CA, SC, SI)"
+  export_controls:
+  - "ITAR/EAR access restrictions; jurisdiction & license management"
+  cloud_impact_levels:
+  - "IL2/IL4/IL5/IL6 hosting and boundary controls; FedRAMP High where applicable"
+anchors:
+  risk_bands_d8df7dee31: *risk_bands_d8df7dee31
+  hil_policy_8af4ee9a00: *hil_policy_8af4ee9a00
+  severity_map_9c0fa26d54: *severity_map_9c0fa26d54
+  incident_thresholds_2a12963227: *incident_thresholds_2a12963227
+  params_89b1a1233a: *params_89b1a1233a
+  obligations_bf8a860b9b: *obligations_bf8a860b9b
+  checklists_206d874cdf: *checklists_206d874cdf

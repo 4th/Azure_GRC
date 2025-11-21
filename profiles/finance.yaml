@@ -1,0 +1,208 @@
+# =======================================================================
+#  policies/profiles/finance.yaml — Financial Services Overlay
+# -----------------------------------------------------------------------
+# Purpose
+#   Sector profile for banks/fintechs referencing FFIEC, GLBA, SR 11-7
+#   (model risk), OCC/FDIC supervisory expectations (US) and EBA guidelines
+#   (EU). Emphasizes model risk governance, customer fairness, AML/KYC,
+#   fraud controls, resiliency, and third-party oversight.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - This is an operational overlay; coordinate with your 2nd/3rd line.
+# =======================================================================
+
+profile: FINANCIAL_SERVICES
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_421a368162
+  # --- Sector posture & customer fairness ---
+  policy_enforcement_level: "strict"
+  fair_lending_checks_required: true             # ECOA/Reg B, UDAAP, EBA fairness
+  disparate_impact_threshold: 0.80               # 80% rule proxy; tune with legal
+  explainability_score_min: 0.75                 # adverse decisions must be explained
+  adverse_action_notice_required: true           # ECOA/Reg B equivalent notices
+  complaint_channel_required: true               # customer complaints/escalations
+
+  # --- Model Risk Management (SR 11-7 / EBA) ---
+  model_inventory_required: true
+  model_risk_tiering_enabled: true               # Tier1 critical → stricter gates
+  independent_validation_required: true          # pre-prod and periodic
+  challenger_models_recommended: true
+  performance_monitoring_metrics:
+  - "pd_auc"                                     # example metrics for credit models
+  - "ks_stat"
+  - "population_stability_index"
+  - "calibration_brier"
+  validation_cadence_days:
+    Tier1: 365
+    Tier2: 540
+    Tier3: 720
+
+  # --- AML / KYC / Fraud (BSA/AML, EBA) ---
+  aml_program_required: true
+  kyc_required_for_onboarding: true
+  sanctions_screening_required: true             # OFAC/EU lists
+  transaction_monitoring_required: true
+  sar_filing_timeline_days: 30                   # Suspicious Activity Report timeline (jurisdictional)
+
+  # --- Privacy & data (GLBA + regional overlays) ---
+  pii_allowed: true
+  sensitive_financial_data_flag: true            # e.g., account numbers
+  data_minimization_required: true
+  data_residency_region: "regional"
+  cross_border_transfer: true                    # allowed with safeguards/BCRs
+  dpa_required_for_processors: true
+  glba_privacy_notice_required: true
+
+  # --- Operational resilience (FFIEC, EBA) ---
+  availability_target_pct: 99.9
+  stress_test_required: true
+  bc_dr_plan_defined: true
+  recovery_time_objective_minutes: 30
+  scenario_exercises_cadence_days: 180
+
+  # --- Access, security, suppliers ---
+  rbac_enabled: true
+  least_privilege_enforced: true
+  mfa_required_for_admins: true
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  supplier_due_diligence_required: true
+  critical_vendor_exit_plan_required: true
+  third_party_risk_tiering_enabled: true
+
+  # --- KPIs & reliability ---
+  risk_cap: 0.60
+  bias_threshold: 0.15
+  token_cap: 42000
+  cost_cap_usd: 8.50
+  latency_target_ms: 1500
+  error_rate_max: 0.02
+
+  # --- Lifecycle & monitoring ---
+  evaluation_interval_days: 30
+  retrain_cycle_days: 180
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_9d843e5ec9
+    low: {max: 0.35}
+    medium: {min: 0.35, max: 0.60}
+    high: {min: 0.60}
+
+  hil_policy: &hil_policy_8f473fc5ec
+    require_for:
+    - "input.kpis.risk_score >= 0.35"
+    - "input.intent in ['approve_loan','set_credit_limit','close_account','bulk_export']"
+    - "input.args.get('contains_pii', False) == True and input.context.get('segment','retail') in ['retail','smb']"
+    approver_roles: ["credit_officer", "compliance_officer", "fraud_ops_manager"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_b3334c40cb
+    model_not_approved: "high"
+    independent_validation_missing: "high"
+    fairness_metric_below_threshold: "high"
+    sanctions_screening_missing: "critical"
+    aml_controls_missing: "critical"
+    transparency_missing: "moderate"
+    encryption_not_enforced: "critical"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.context.segment"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "model_inventory_id"
+  - "model_validation_report_id"
+  - "sars_filed_count_month"
+  - "complaint_case_id"
+
+  jurisdiction: "global (finance)"
+  regulatory_scope: ["FFIEC IT Handbook", "SR 11-7 (US)", "GLBA", "EBA Guidelines on AI (reference)"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_18565c8fbf
+  disclosure_banner: >
+    This system applies financial-sector controls for model risk, fairness,
+    AML/KYC, customer outcomes, resiliency, and vendor oversight aligned
+    to FFIEC/GLBA in the US and EBA expectations in the EU.
+  escalation_contact: "finance-compliance@4th.is"
+  audit_profile_tag: "FINANCIAL_SERVICES"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_62377eded6
+  model_risk:
+    inventory_complete: true
+    risk_tiering_applied: true
+    independent_validation_completed: true
+    performance_monitoring_active: true
+  aml_kyc_fraud:
+    kyc_workflows_configured: true
+    transaction_monitoring_active: true
+    sanctions_lists_current: true
+    sar_process_defined: true
+  customer_fairness:
+    adverse_action_notice_workflow_configured: true
+    complaint_mechanism_available: true
+  resilience_and_third_parties:
+    stress_tests_scheduled: true
+    bc_dr_plan_tested: true
+    critical_vendor_exit_plan_documented: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+finance_focus:
+  ffiec_it_handbook:
+  - "Governance, risk management, information security, business continuity"
+  sr_11_7_model_risk:
+  - "Inventory, validation, ongoing monitoring, use controls, change mgmt"
+  glba_privacy:
+  - "Safeguards rule, privacy notices, service provider oversight"
+  eba_guidelines_reference:
+  - "Fairness, transparency, data governance, model oversight"
+anchors:
+  risk_bands_9d843e5ec9: *risk_bands_9d843e5ec9
+  hil_policy_8f473fc5ec: *hil_policy_8f473fc5ec
+  severity_map_b3334c40cb: *severity_map_b3334c40cb
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_421a368162: *params_421a368162
+  obligations_18565c8fbf: *obligations_18565c8fbf
+  checklists_62377eded6: *checklists_62377eded6

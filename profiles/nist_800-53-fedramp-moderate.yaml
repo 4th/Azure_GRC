@@ -1,0 +1,241 @@
+# ===================================================================================
+#  policies/profiles/nist_800-53-fedramp-moderate.yaml — NIST 800-53r5 / FedRAMP Mod
+# -----------------------------------------------------------------------------------
+# Purpose
+#   Provide an overlay aligned to NIST SP 800-53 Rev.5 controls at the
+#   FedRAMP Moderate baseline. Focuses on access control, audit, config,
+#   incident response, contingency/continuity, identification/authentication,
+#   risk assessment, security assessment, system and communications protection,
+#   and system/information integrity.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults)
+#   - Reuses rule modules from ../rules/*.yaml
+#   - Parameters map to common 800-53 control families (AC, AU, CM, CP, IA, IR,
+#     MP, PE (proxied in cloud), PL, PM, RA, CA, SC, SI). Where cloud provider
+#     is responsible (PE, MP), use attestation flags and shared responsibility.
+# ===================================================================================
+
+profile: NIST_800_53_FedRAMP_MOD
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# --------------------------------- Parameters ---------------------------------
+params: &params_c96a8e2c01
+  # ------------------- Program management & planning (PL/PM) -------------------
+  policy_enforcement_level: "strict"
+  system_security_plan_ssp_required: true           # PL-2
+  control_implementation_summary_required: true     # PL/PM
+  configuration_management_plan_required: true      # CM-9
+  incident_response_plan_defined: true              # IR-8
+  contingency_plan_defined: true                    # CP-2
+  continuous_monitoring_strategy_defined: true      # CA-7
+  privacy_program_alignment_documented: true        # AP/AR families (Privacy)
+
+  # ----------------------------- Access control (AC) ---------------------------
+  rbac_enabled: true                                 # AC-2, AC-3
+  least_privilege_enforced: true                     # AC-6
+  mfa_required_for_admins: true                      # IA-2(1)
+  session_timeout_minutes: 30                        # AC-12
+  remote_access_restrictions_enabled: true           # AC-17
+
+  # --------------------- Identification & authentication (IA) ------------------
+  identity_provider_fedramp_authorized: true         # IA-2
+  password_policy_nist80063b_aligned: true          # IA-5
+
+  # ------------------------------ Audit & accountability (AU) ------------------
+  enable_decision_logging: true                      # AU family
+  decision_log_format: "json"
+  include_trace_id: true
+  log_retention_days: 365                            # ≥1 year advisable
+  audit_review_cadence_days: 30                      # AU-6
+
+  # ------------------------- Configuration management (CM) ---------------------
+  baseline_config_documented: true                   # CM-2
+  change_ticket_required: true                       # CM-3
+  code_review_required: true                         # CM-3(2)
+  dependency_scanning_required: true                 # CM-8 proxy
+
+  # ------------------------- Incident response (IR) ----------------------------
+  incident_reporting_timeline_hours: 1               # IR-6 (FedRAMP rapid notify)
+  incident_severity_scale_defined: true              # IR-4
+  tabletop_exercise_cadence_days: 180                # IR-3
+
+  # ------------------------- Contingency planning (CP) -------------------------
+  bc_dr_plan_defined: true                           # CP-2
+  recovery_time_objective_minutes: 60                # CP-10 proxy
+  backup_and_restore_defined: true                   # CP-9
+  backups_test_frequency_days: 30
+
+  # ---------------------- Risk assessment / Security assessment ---------------
+  risk_register_required: true                       # RA-3
+  periodic_risk_assessment_days: 90                  # RA-5
+  security_assessment_plan_required: true            # CA-2
+  poam_required: true                                # FedRAMP POA&M
+  third_party_assessment_org_used: true              # 3PAO for ATO
+
+  # ---------------------- System & comms protection (SC) ----------------------
+  encryption_required: true                          # SC-12, SC-13
+  tls_min_version: "TLS1.2"
+  network_segmentation_required: true                # SC-7
+  egress_filtering_required: true                    # SC-7(8)
+
+  # ------------------------- System & info integrity (SI) ---------------------
+  anti_malware_controls_expected: true               # SI-3
+  code_signing_required_for_release: true            # SI-7 proxy
+  supply_chain_risk_mgmt_enabled: true               # SA/PM/RA link
+
+  # ----------------------- Media/Physical (MP/PE — cloud proxies) -------------
+  cloud_provider_attestation_received: true          # PE, MP shared responsibility
+  cloud_provider_fedramp_authorization: true
+
+  # ------------------------------ Privacy overlays ----------------------------
+  pii_allowed: false
+  dpa_required_for_processors: true
+  data_residency_region: "us-gov-or-us"
+  cross_border_transfer: false
+  data_retention_days: 30
+
+  # ------------------------------ KPIs & reliability --------------------------
+  risk_cap: 0.60
+  bias_threshold: 0.15
+  explainability_score_min: 0.70
+  token_cap: 40000
+  cost_cap_usd: 8.00
+  latency_target_ms: 1800
+  error_rate_max: 0.02
+  availability_target_pct: 99.9
+
+  # ------------------------------ Lifecycle & monitoring ----------------------
+  evaluation_interval_days: 30
+  retrain_cycle_days: 120
+  drift_detection_enabled: true
+  internal_audit_cadence_days: 180
+  management_review_cadence_days: 90
+  nonconformity_tracking_enabled: true
+  continuous_monitoring_cadence_days: 30            # CA-7
+
+  # ------------------------------ Structured helpers -------------------------
+  risk_bands: &risk_bands_9d843e5ec9
+    low: {max: 0.35}
+    medium: {min: 0.35, max: 0.60}
+    high: {min: 0.60}
+
+  hil_policy: &hil_policy_f2fea3eaad
+    require_for:
+    - "input.kpis.risk_score >= 0.35"
+    - "input.args.get('contains_pii', False) == True"
+    - "input.intent in ['approve_payment','bulk_export','delete_record']"
+    - "input.context.get('impact_level','moderate') in ['moderate','high']"
+    approver_roles: ["security_officer", "compliance_officer", "ao_delegate"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_364b42c2a5
+    token_budget_exceeded: "moderate"
+    model_not_approved: "high"
+    pii_not_allowed_for_this_profile: "critical"
+    transparency_missing: "moderate"
+    encryption_not_enforced: "critical"
+    network_domain_not_allowlisted: "high"
+    unauthorized_remote_access_attempt: "critical"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.context.impact_level"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "ssp_doc_id"
+  - "poam_item_id"
+  - "incident_ticket_id"
+
+  jurisdiction: "US (FedRAMP)"
+  regulatory_scope: ["NIST SP 800-53 Rev.5 (FedRAMP Moderate)", "FIPS 199/200", "NIST 800-37 RMF"]
+
+# -------------------------------- Obligations --------------------------------
+obligations: &obligations_9b68ff8e6d
+  disclosure_banner: >
+    This system operates under a NIST SP 800-53 Rev.5 / FedRAMP Moderate profile.
+    It enforces strict access control, audit logging, encryption, incident
+    handling, contingency planning, and continuous monitoring.
+  escalation_contact: "fedramp@4th.is"
+  audit_profile_tag: "NIST_800_53_FEDRAMP_MOD"
+  max_tokens: 1700
+  max_output_chars: 6500
+  require_logging: true
+
+# --------------------------------- Checklists ---------------------------------
+checklists: &checklists_0f8382441e
+  authorization_to_operate:
+    ssp_complete_and_current: true
+    controls_implemented_and_tested: true
+    poam_in_place_for_gaps: true
+    continuous_monitoring_active: true
+    3pao_assessment_planned_or_done: true
+  operations:
+    incident_response_plan_tested: true
+    contingency_plan_tested: true
+    cm_baseline_up_to_date: true
+    audits_scheduled: true
+
+# -------------------------- 800-53 crosswalk (informative) --------------------
+nist_800_53_focus:
+  ac_access_control:
+  - "AC-2 Account management, AC-3 Access enforcement, AC-6 Least privilege"
+  au_audit:
+  - "AU-2 Event logging, AU-6 Review, AU-12 Audit generation"
+  cm_configuration_management:
+  - "CM-2 Baselines, CM-3 Change control, CM-8 Component inventory"
+  cp_contingency_planning:
+  - "CP-2 Plan, CP-9 Backups, CP-10 Recovery"
+  ia_identification_authentication:
+  - "IA-2 MFA, IA-5 Authenticator management"
+  ir_incident_response:
+  - "IR-4 Handling, IR-6 Reporting, IR-8 Planning"
+  ra_risk_assessment:
+  - "RA-3 Risk assessment, RA-5 Vulnerability scanning"
+  ca_assessment_authorization:
+  - "CA-2 Assessments, CA-7 Continuous monitoring, ATO process"
+  sc_system_comms_protection:
+  - "SC-7 Boundary protection, SC-12/13 Cryptography"
+  si_system_information_integrity:
+  - "SI-3 Malicious code, SI-7 Software/firmware integrity"
+anchors:
+  risk_bands_9d843e5ec9: *risk_bands_9d843e5ec9
+  hil_policy_f2fea3eaad: *hil_policy_f2fea3eaad
+  severity_map_364b42c2a5: *severity_map_364b42c2a5
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_c96a8e2c01: *params_c96a8e2c01
+  obligations_9b68ff8e6d: *obligations_9b68ff8e6d
+  checklists_0f8382441e: *checklists_0f8382441e

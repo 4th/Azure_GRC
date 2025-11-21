@@ -1,0 +1,29 @@
+profile_id: iso_42001-global
+version: "1.2.0"
+description: "ISO 42001 global baseline profile for tests."
+
+controls:
+  - control_id: bias_fairness
+    rule_ref: bias_fairness
+    title: "Bias & Fairness mitigation"
+    weight: 0.2
+
+  - control_id: transparency_docs
+    rule_ref: transparency_docs
+    title: "Transparency & documentation"
+    weight: 0.2
+
+  - control_id: robustness_eval
+    rule_ref: robustness_eval
+    title: "Robustness & evaluation"
+    weight: 0.2
+
+  - control_id: data_protection
+    rule_ref: data_protection
+    title: "Data protection & privacy"
+    weight: 0.2
+
+  - control_id: monitoring_incidents
+    rule_ref: monitoring_incidents
+    title: "Monitoring, logging, and incident response"
+    weight: 0.2

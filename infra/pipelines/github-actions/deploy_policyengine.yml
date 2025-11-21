@@ -1,0 +1,94 @@
+name: Deploy – PolicyEngine Service
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "services/policyengine_svc/**"
+      - "infra/container-images/policyengine-svc/**"
+      - "infra/scripts/build_and_push_images.sh"
+      - "infra/pipelines/github-actions/deploy_policyengine.yml"
+      - ".github/workflows/deploy_policyengine.yml"
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: policyengine-svc
+  DOCKERFILE_PATH: infra/container-images/policyengine-svc/Dockerfile
+  REGISTRY: ${{ secrets.CONTAINER_REGISTRY }}           # e.g. myregistry.azurecr.io
+  TAG: ${{ github.sha }}                                # or 'latest' or a version
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-deploy:
+    name: Build & Deploy PolicyEngine
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 🔐 Login to Azure (for Container Apps deployment)
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 🔐 Login to container registry
+      - name: Docker login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      # 🏗 Build & push container image
+      # Option A: call your shared script (preferred once it's wired up)
+      # - name: Build & push image via infra script
+      #   run: |
+      #     bash infra/scripts/build_and_push_images.sh \
+      #       "${{ env.IMAGE_NAME }}" \
+      #       "${{ env.REGISTRY }}" \
+      #       "${{ env.TAG }}"
+
+      # Option B: inline build/push (works now even if script isn't ready yet)
+      - name: Build image
+        run: |
+          docker build \
+            -t "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}" \
+            -f "${{ env.DOCKERFILE_PATH }}" \
+            .
+      - name: Push image
+        run: |
+          docker push "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}"
+
+      # 📦 Deploy to Azure Container Apps
+      # Expects these secrets:
+      #   AZURE_RESOURCE_GROUP
+      #   AZURE_CONTAINERAPPS_ENVIRONMENT
+      #   POLICYENGINE_APP_NAME
+      - name: Deploy to Azure Container Apps
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az extension add --name containerapp --yes
+
+            az containerapp update \
+              --name "${{ secrets.POLICYENGINE_APP_NAME }}" \
+              --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+              --image "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}" \
+              --environment "${{ secrets.AZURE_CONTAINERAPPS_ENVIRONMENT }}" \
+              --output table || \
+            az containerapp create \
+              --name "${{ secrets.POLICYENGINE_APP_NAME }}" \
+              --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+              --environment "${{ secrets.AZURE_CONTAINERAPPS_ENVIRONMENT }}" \
+              --image "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.TAG }}" \
+              --target-port 8080 \
+              --ingress external \
+              --min-replicas 1 \
+              --max-replicas 3 \
+              --output table

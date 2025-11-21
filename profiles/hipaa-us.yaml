@@ -1,0 +1,222 @@
+# =======================================================================
+#  policies/profiles/hipaa-us.yaml — HIPAA/HITECH Privacy & Security (US)
+# -----------------------------------------------------------------------
+# Purpose
+#   Align agent behavior with HIPAA Privacy Rule, Security Rule, and HITECH,
+#   emphasizing safeguards for PHI, minimum necessary use, access control,
+#   audit controls, transmission security, breach notification, BAAs, and
+#   de-identification/safe-harbor practices.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - Parameters emphasize administrative, physical, and technical safeguards.
+#   - Not legal advice; confirm with your compliance counsel.
+# =======================================================================
+
+profile: HIPAA_US
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_852b189f7f
+  # --- Covered entity / business associate posture ---
+  policy_enforcement_level: "strict"
+  is_covered_entity: true
+  is_business_associate: false
+  baa_required_for_vendors: true                      # Business Associate Agreements
+  designated_privacy_officer_defined: true
+  designated_security_officer_defined: true
+
+  # --- PHI handling ---
+  phi_allowed: true                                    # HIPAA allows PHI with safeguards
+  pii_allowed: true                                    # subset; PHI implies PII
+  minimum_necessary_enforced: true
+  use_disclosure_purpose_required: true               # treatment/payment/operations or authorization
+  authorization_required_for_non_tpo: true            # patient authorization outside TPO
+  deidentification_safe_harbor_required_for_exports: true
+  deid_method: "safe_harbor"                          # safe_harbor | expert_determination
+  reidentification_prohibited_without_controls: true
+
+  # --- Privacy rule processes ---
+  notice_of_privacy_practices_available: true
+  individual_rights_workflows_configured: true        # access, amendment, accounting of disclosures
+  accounting_of_disclosures_required: true
+  minimum_retention_years: 6                          # documentation retention period
+
+  # --- Security rule safeguards (admin/physical/technical) ---
+  # Administrative
+  risk_analysis_conducted: true
+  risk_management_plan_defined: true
+  workforce_security_training_required: true
+  sanction_policy_defined: true
+  contingency_plan_defined: true
+  evaluation_interval_days: 30
+  management_review_cadence_days: 90
+
+  # Physical (proxied for cloud context)
+  facility_access_policies_reviewed: true
+  workstation_security_policies_defined: true
+  device_and_media_controls_defined: true
+
+  # Technical
+  rbac_enabled: true
+  unique_user_identification_required: true
+  automatic_logoff_minutes: 30
+  mfa_required_for_admins: true
+  encryption_required: true                           # 45 CFR §164.312(a),(e)
+  tls_min_version: "TLS1.2"
+  integrity_controls_enabled: true
+  audit_controls_enabled: true                        # enable decision logging
+  person_or_entity_authentication_required: true
+  transmission_security_enabled: true
+
+  # --- Breach notification (HITECH) ---
+  breach_notification_timeline_days: 60               # notify affected individuals without unreasonable delay (<=60 days)
+  notify_hhs_for_500_plus_immediately: true
+  media_notice_required_for_500_plus: true
+
+  # --- Processors/Vendors ---
+  dpa_required_for_processors: true
+  supplier_due_diligence_required: true
+  supplier_certifications_expected: ["HITRUST (optional)", "SOC 2", "ISO/IEC 27001"]
+
+  # --- Residency & transfers (US baseline; restrict as needed) ---
+  data_residency_region: "US"
+  cross_border_transfer: true                         # allowed with BAAs/Safeguards; often US-only preferred
+
+  # --- Retention & logging ---
+  data_retention_days: 30
+  log_retention_days: 365
+  redact_before_log: true
+
+  # --- Operational KPIs (governance overlays) ---
+  risk_cap: 0.65
+  bias_threshold: 0.15
+  explainability_score_min: 0.70
+  token_cap: 45000
+  cost_cap_usd: 9.00
+  latency_target_ms: 1800
+  error_rate_max: 0.03
+  availability_target_pct: 99.5
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_482d50b9ba
+    low: {max: 0.40}
+    medium: {min: 0.40, max: 0.65}
+    high: {min: 0.65}
+
+  hil_policy: &hil_policy_a72c742356
+    require_for:
+    - "input.kpis.risk_score >= 0.40"
+    - "input.args.get('contains_phi', False) == True and params.get('minimum_necessary_enforced', True) == True"
+    - "input.intent in ['bulk_export','delete_record']"
+    - "input.context.get('use_disclosure_purpose') not in ['treatment','payment','operations']"
+    approver_roles: ["privacy_officer", "security_officer"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_6d97811ce7
+    phi_minimum_necessary_violation: "high"
+    authorization_missing_for_non_tpo: "high"
+    encryption_not_enforced: "critical"
+    breach_suspected: "critical"
+    vendor_baa_missing: "high"
+    transparency_missing: "moderate"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.args.contains_phi"
+  - "input.context.use_disclosure_purpose"
+  - "result.allow"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "baa_contract_id"
+  - "accounting_of_disclosures_id"
+  - "breach_report_id"
+
+  jurisdiction: "US"
+  regulatory_scope: ["HIPAA Privacy Rule (45 CFR §164.5xx)", "HIPAA Security Rule (45 CFR §164.3xx)", "HITECH"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_8e9b334a7c
+  disclosure_banner: >
+    This system enforces HIPAA/HITECH safeguards for Protected Health Information,
+    including minimum necessary use, access control, audit logging, encryption,
+    and breach notification processes.
+  escalation_contact: "hipaa@4th.is"
+  audit_profile_tag: "HIPAA_US"
+  max_tokens: 1800
+  max_output_chars: 7000
+  require_accounting_of_disclosures: true
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_47bdabda23
+  administrative_safeguards:
+    risk_analysis_conducted: true
+    risk_management_plan_defined: true
+    workforce_training_completed: true
+    sanction_policy_defined: true
+    contingency_plan_defined: true
+  physical_safeguards:
+    facility_access_policies_reviewed: true
+    workstation_security_policies_defined: true
+    device_and_media_controls_defined: true
+  technical_safeguards:
+    unique_user_identification_required: true
+    automatic_logoff_configured: true
+    encryption_and_decryption_controls_enabled: true
+    integrity_controls_enabled: true
+    audit_controls_enabled: true
+    transmission_security_enabled: true
+  breach_notification:
+    breach_notification_policy_defined: true
+    hhs_reporting_workflow_configured: true
+    media_notice_workflow_configured: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+hipaa_focus:
+  privacy_rule:
+  - "Minimum necessary; use/disclosure purpose (TPO/authorization)"
+  - "Individual rights: access, amendment, accounting of disclosures"
+  security_rule:
+  - "Administrative, physical, technical safeguards; risk analysis & mgmt"
+  hitech_breach:
+  - "Breach notification timelines; HHS & media for 500+; log retention"
+anchors:
+  risk_bands_482d50b9ba: *risk_bands_482d50b9ba
+  hil_policy_a72c742356: *hil_policy_a72c742356
+  severity_map_6d97811ce7: *severity_map_6d97811ce7
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_852b189f7f: *params_852b189f7f
+  obligations_8e9b334a7c: *obligations_8e9b334a7c
+  checklists_47bdabda23: *checklists_47bdabda23

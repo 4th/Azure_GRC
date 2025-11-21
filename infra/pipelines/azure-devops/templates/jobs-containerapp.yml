@@ -1,0 +1,115 @@
+ # infra/pipelines/azure-devops/templates/jobs-containerapp.yml
+# Reusable job template for building & deploying an Azure Container App image
+
+parameters:
+  # Required
+  - name: imageName
+    type: string
+  - name: dockerfilePath
+    type: string
+  - name: containerRegistry
+    type: string
+  - name: azureSubscription
+    type: string
+  - name: resourceGroup
+    type: string
+  - name: containerAppEnv
+    type: string
+  - name: containerAppName
+    type: string
+
+  # Optional
+  - name: imageTag
+    type: string
+    default: '$(Build.SourceVersion)'
+  - name: targetPort
+    type: number
+    default: 8080
+  - name: vmImage
+    type: string
+    default: 'ubuntu-latest'
+
+jobs:
+  - job: BuildAndDeploy_${{ parameters.imageName }}
+    displayName: Build & Deploy ${{ parameters.imageName }}
+    pool:
+      vmImage: ${{ parameters.vmImage }}
+
+    steps:
+      - checkout: self
+
+      # 🐳 Ensure Docker is available
+      - task: DockerInstaller@0
+        displayName: 'Install Docker (if needed)'
+
+      # 🔐 Login to ACR (using a Docker service connection OR registry credentials)
+      # Option A: Use a Docker service connection (recommended)
+      # - task: Docker@2
+      #   displayName: 'Login to ACR'
+      #   inputs:
+      #     command: 'login'
+      #     containerRegistry: '<DOCKER_SERVICE_CONNECTION_NAME>'
+
+      # Option B: Use username/password variables (uncomment if you prefer this pattern)
+      # - script: |
+      #     echo "$ACR_PASSWORD" | docker login ${{ parameters.containerRegistry }} \
+      #       --username "$ACR_USERNAME" --password-stdin
+      #   displayName: 'Docker login via username/password'
+      #   env:
+      #     ACR_USERNAME: $(ACR_USERNAME)
+      #     ACR_PASSWORD: $(ACR_PASSWORD)
+
+      - script: |
+          IMAGE="${{ parameters.containerRegistry }}/${{ parameters.imageName }}:${{ parameters.imageTag }}"
+          echo "Building image: $IMAGE"
+          docker build \
+            -t "$IMAGE" \
+            -f "${{ parameters.dockerfilePath }}" \
+            .
+        displayName: 'Build Docker image'
+
+      - script: |
+          IMAGE="${{ parameters.containerRegistry }}/${{ parameters.imageName }}:${{ parameters.imageTag }}"
+          echo "Pushing image: $IMAGE"
+          docker push "$IMAGE"
+        displayName: 'Push Docker image'
+
+      # 🌐 Deploy/update Azure Container App
+      - task: AzureCLI@2
+        displayName: 'Deploy to Azure Container Apps'
+        inputs:
+          azureSubscription: ${{ parameters.azureSubscription }}
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            set -e
+
+            echo "Ensuring Azure Container Apps extension is installed..."
+            az extension add --name containerapp --yes || az extension update --name containerapp
+
+            IMAGE="${{ parameters.containerRegistry }}/${{ parameters.imageName }}:${{ parameters.imageTag }}"
+
+            echo "Checking if Container App '${{ parameters.containerAppName }}' exists in RG '${{ parameters.resourceGroup }}'..."
+            if az containerapp show \
+                 --name "${{ parameters.containerAppName }}" \
+                 --resource-group "${{ parameters.resourceGroup }}" >/dev/null 2>&1; then
+
+              echo "Updating existing Container App..."
+              az containerapp update \
+                --name "${{ parameters.containerAppName }}" \
+                --resource-group "${{ parameters.resourceGroup }}" \
+                --image "$IMAGE" \
+                --output table
+            else
+              echo "Creating new Container App '${{ parameters.containerAppName }}'..."
+              az containerapp create \
+                --name "${{ parameters.containerAppName }}" \
+                --resource-group "${{ parameters.resourceGroup }}" \
+                --environment "${{ parameters.containerAppEnv }}" \
+                --image "$IMAGE" \
+                --target-port ${{ parameters.targetPort }} \
+                --ingress external \
+                --min-replicas 1 \
+                --max-replicas 3 \
+                --output table
+            fi

@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://4th.grc/schema/policy_eval_webhook/request_schema.json",
+  "title": "Policy Evaluation Webhook Request",
+  "description": "Request payload schema for the 4th.GRC policy_eval_webhook Azure Function.",
+  "type": "object",
+  "properties": {
+    "system_id": {
+      "type": "string",
+      "description": "Unique identifier for the system or asset being evaluated (e.g., service name, app ID).",
+      "minLength": 1
+    },
+    "profile_ref": {
+      "type": "string",
+      "description": "Profile reference that PolicyEngine should use (e.g., iso_42001-global@1.2.0).",
+      "minLength": 1
+    },
+    "use_case": {
+      "type": "string",
+      "description": "Optional use case label that can help planners/tools resolve the correct profile or routing.",
+      "minLength": 1
+    },
+    "system_type": {
+      "type": "string",
+      "description": "Optional system type (e.g., 'batch_job', 'realtime_api', 'chat_agent').",
+      "minLength": 1
+    },
+    "context": {
+      "type": "object",
+      "description": "Additional metadata about the evaluation context (owner, environment, tags).",
+      "properties": {
+        "owner": {
+          "type": "string",
+          "description": "Business or technical owner of the system."
+        },
+        "environment": {
+          "type": "string",
+          "description": "Environment name (dev, test, staging, prod)."
+        },
+        "tags": {
+          "type": "array",
+          "description": "Optional tags for search/analytics.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "input": {
+      "type": "object",
+      "description": "The evidence or input payload to be evaluated by PolicyEngine.",
+      "properties": {
+        "evidence": {
+          "type": "object",
+          "description": "Structured evidence object (model cards, logs, configs, test results).",
+          "additionalProperties": true
+        },
+        "raw": {
+          "type": "object",
+          "description": "Optional raw/unstructured payload supplied by the caller.",
+          "additionalProperties": true
+        }
+      },
+      "required": ["evidence"],
+      "additionalProperties": true
+    },
+    "trace_id": {
+      "type": "string",
+      "description": "Optional trace or correlation ID for observability."
+    },
+    "source": {
+      "type": "string",
+      "description": "Optional identifier of the system sending the request (e.g., 'github-actions', 'ado-pipeline', 'scorecard-ui')."
+    }
+  },
+  "required": [
+    "system_id",
+    "profile_ref",
+    "input"
+  ],
+  "additionalProperties": false
+}

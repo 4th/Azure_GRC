@@ -1,0 +1,181 @@
+# =======================================================================
+#  policies/profiles/ieee_7000-series.yaml — IEEE 7000-Series Profile
+# -----------------------------------------------------------------------
+# Purpose
+#   Align agent behavior with the IEEE 7000-series ethical design standards,
+#   emphasizing value-based engineering, transparency, bias/fairness metrics,
+#   lifecycle risk management, and human oversight.
+#
+# Scope (illustrative references)
+#   - IEEE 7000: Model Process for Addressing Ethical Concerns During System Design
+#   - IEEE 7001: Transparency of Autonomous Systems
+#   - IEEE 7010: Well-being Metrics for Ethical AI and Autonomous Systems
+#   - (optionally consider 7002, 7003, 7008, etc. as you expand)
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - Parameters emphasize stakeholder values, transparency artifacts,
+#     well-being KPIs, and review gates.
+# =======================================================================
+
+profile: IEEE_7000_SERIES
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_b502fe40c2
+  # Governance & value-based engineering (IEEE 7000)
+  policy_enforcement_level: "strict"
+  stakeholder_value_register_required: true     # capture stakeholder values & concerns
+  ethical_requirements_spec_required: true      # ERS document versioned and reviewed
+  design_assumptions_logged: true               # track key assumptions & rationale
+  change_ticket_required: true
+  human_review_required: true
+
+  # Transparency artifacts (IEEE 7001)
+  disclosure_required: true
+  transparency_artifacts:
+    model_card_required: true
+    data_sheet_required: true
+    system_fact_sheet_required: true            # system-level transparency sheet
+  explainability_score_min: 0.75
+  require_context_metadata: true
+
+  # Well-being metrics & impacts (IEEE 7010)
+  wellbeing_metrics_enabled: true
+  wellbeing_dimensions: ["psychological", "social", "economic", "environmental"]
+  wellbeing_impact_assessment_required: true
+
+  # Bias, fairness & inclusion
+  bias_threshold: 0.15
+  fairness_review_required: true
+  inclusiveness_checks_enabled: true
+
+  # Security, safety & privacy
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  safety_filters_required: true
+  pii_allowed: false
+  dpa_required_for_processors: true
+  data_residency_region: "global"
+  cross_border_transfer: true                  # allowed with lawful safeguards
+  data_retention_days: 30
+  log_retention_days: 180
+
+  # KPIs & reliability
+  risk_cap: 0.65
+  token_cap: 42000
+  cost_cap_usd: 8.50
+  latency_target_ms: 1800
+  error_rate_max: 0.03
+  availability_target_pct: 99.5
+
+  # Lifecycle & improvement
+  evaluation_interval_days: 30
+  retrain_cycle_days: 120
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true
+
+  # Structured helpers
+  risk_bands: &risk_bands_482d50b9ba
+    low: {max: 0.40}
+    medium: {min: 0.40, max: 0.65}
+    high: {min: 0.65}
+  hil_policy: &hil_policy_4c7d76b4a7
+    require_for:
+    - "input.kpis.risk_score >= 0.40"
+    - "input.args.get('contains_pii', False) == True"
+    - "input.intent in ['approve_payment','bulk_export','delete_record']"
+    - "input.context.get('wellbeing_impact','low') in ['medium','high']"
+    approver_roles: ["ethics_officer", "risk_manager"]
+    timeout_seconds: 900
+  severity_map: &severity_map_b101b8d637
+    token_budget_exceeded: "moderate"
+    model_not_approved: "high"
+    pii_not_allowed_for_this_profile: "critical"
+    transparency_missing: "high"
+    wellbeing_impact_unassessed: "moderate"
+    encryption_not_enforced: "critical"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.context.stakeholders"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "wellbeing_assessment_id"
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_d51cb206f7
+  disclosure_banner: >
+    This system follows IEEE 7000-series ethics-by-design practices, including
+    value-based engineering, transparency artifacts, well-being metrics, and
+    human oversight for higher-risk actions.
+  escalation_contact: "ieee-7000@4th.is"
+  audit_profile_tag: "IEEE_7000_SERIES"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_184eea3d02
+  value_based_engineering:
+    stakeholder_value_register_present: true
+    ethical_requirements_spec_versioned: true
+    assumptions_and_rationale_logged: true
+  transparency_artifacts:
+    model_card_published: true
+    data_sheet_published: true
+    system_fact_sheet_published: true
+  wellbeing_practices:
+    wellbeing_impact_assessment_completed: true
+    wellbeing_metrics_tracked: true
+
+# ------------------------ IEEE crosswalk (informative) -------------------
+ieee_focus:
+  ieee_7000:
+  - "Stakeholder value elicitation; ethical requirements; traceability"
+  - "Change control with rationale; evidence-based decisions"
+  ieee_7001:
+  - "Transparency artifacts; explainability; user disclosures"
+  ieee_7010:
+  - "Well-being metrics and impact assessment across dimensions"
+anchors:
+  risk_bands_482d50b9ba: *risk_bands_482d50b9ba
+  hil_policy_4c7d76b4a7: *hil_policy_4c7d76b4a7
+  severity_map_b101b8d637: *severity_map_b101b8d637
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_b502fe40c2: *params_b502fe40c2
+  obligations_d51cb206f7: *obligations_d51cb206f7
+  checklists_184eea3d02: *checklists_184eea3d02

@@ -1,0 +1,136 @@
+# infra/pipelines/azure-devops/templates/jobs-terraform.yml
+# Reusable jobs template for running Terraform init/validate/plan/apply
+
+parameters:
+  # Required
+  - name: environmentName
+    type: string          # e.g. "dev", "staging", "prod"
+  - name: tfWorkingDir
+    type: string          # e.g. "infra/terraform/environments/dev"
+  - name: azureServiceConnection
+    type: string          # Service connection name in AzDO (ARM/OIDC)
+
+  # Optional
+  - name: terraformVersion
+    type: string
+    default: '1.9.0'
+  - name: vmImage
+    type: string
+    default: 'ubuntu-latest'
+  - name: tfVarsFile
+    type: string
+    default: ''           # if empty, will default to "<environmentName>.tfvars"
+  - name: enableApply
+    type: boolean
+    default: true         # if false, only Plan job will run (no Apply stage)
+
+jobs:
+  # 🧪 Plan job (runs on PRs and CI)
+  - job: TerraformPlan_${{ parameters.environmentName }}
+    displayName: "Terraform Plan – ${{ parameters.environmentName }}"
+    pool:
+      vmImage: ${{ parameters.vmImage }}
+
+    steps:
+      - checkout: self
+
+      - task: AzureCLI@2
+        displayName: 'Azure login (for backend & providers)'
+        inputs:
+          azureSubscription: ${{ parameters.azureServiceConnection }}
+          scriptType: 'bash'
+          scriptLocation: 'inlineScript'
+          inlineScript: |
+            echo "Logged into Azure via service connection: ${{ parameters.azureServiceConnection }}"
+            az account show
+
+      - task: TerraformInstaller@1
+        displayName: 'Install Terraform'
+        inputs:
+          terraformVersion: ${{ parameters.terraformVersion }}
+
+      - script: |
+          set -e
+          echo "Environment: ${{ parameters.environmentName }}"
+          echo "Working dir: ${{ parameters.tfWorkingDir }}"
+
+          cd "${{ parameters.tfWorkingDir }}"
+
+          echo "Running terraform init..."
+          terraform init
+
+          echo "Running terraform validate..."
+          terraform validate
+
+          TFVARS_FILE="${{ parameters.tfVarsFile }}"
+          if [ -z "$TFVARS_FILE" ]; then
+            TFVARS_FILE="${{ parameters.environmentName }}.tfvars"
+          fi
+
+          echo "Using tfvars file: $TFVARS_FILE"
+
+          echo "Running terraform plan..."
+          terraform plan -var-file="$TFVARS_FILE" -out=tfplan
+        displayName: 'Terraform init, validate, plan'
+        env:
+          ARM_USE_OIDC: 'true'
+
+      - task: PublishBuildArtifacts@1
+        displayName: 'Publish Terraform plan artifact'
+        inputs:
+          PathtoPublish: '${{ parameters.tfWorkingDir }}/tfplan'
+          ArtifactName: 'tfplan-${{ parameters.environmentName }}'
+          publishLocation: 'Container'
+
+  # 🚀 Apply job (optional, main branch only)
+  - ${{ if eq(parameters.enableApply, true) }}:
+    - job: TerraformApply_${{ parameters.environmentName }}
+      displayName: "Terraform Apply – ${{ parameters.environmentName }}"
+      dependsOn: TerraformPlan_${{ parameters.environmentName }}
+      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+      pool:
+        vmImage: ${{ parameters.vmImage }}
+
+      steps:
+        - checkout: self
+
+        - task: AzureCLI@2
+          displayName: 'Azure login (for backend & providers)'
+          inputs:
+            azureSubscription: ${{ parameters.azureServiceConnection }}
+            scriptType: 'bash'
+            scriptLocation: 'inlineScript'
+            inlineScript: |
+              echo "Logged into Azure via service connection: ${{ parameters.azureServiceConnection }}"
+              az account show
+
+        - task: TerraformInstaller@1
+          displayName: 'Install Terraform'
+          inputs:
+            terraformVersion: ${{ parameters.terraformVersion }}
+
+        - script: |
+            set -e
+            echo "Environment: ${{ parameters.environmentName }}"
+            echo "Working dir: ${{ parameters.tfWorkingDir }}"
+
+            cd "${{ parameters.tfWorkingDir }}"
+
+            echo "Re-running terraform init..."
+            terraform init
+
+            TFVARS_FILE="${{ parameters.tfVarsFile }}"
+            if [ -z "$TFVARS_FILE" ]; then
+              TFVARS_FILE="${{ parameters.environmentName }}.tfvars"
+            fi
+
+            echo "Using tfvars file: $TFVARS_FILE"
+
+            echo "Re-running terraform plan (safety)..."
+            terraform plan -var-file="$TFVARS_FILE" -out=tfplan
+
+            echo "Applying Terraform changes..."
+            terraform apply -auto-approve tfplan
+          displayName: 'Terraform apply'
+          env:
+            ARM_USE_OIDC: 'true'

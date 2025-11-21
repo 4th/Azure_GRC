@@ -1,0 +1,68 @@
+{
+  "schema_version": "1.0",
+  "updated_at": "2025-11-10T00:00:00Z",
+  "profiles": [
+    {
+      "id": "iso_42001-global",
+      "version": "1.2.0",
+      "file": "iso_42001-global@1.2.0.yaml",
+      "checksum_sha256": "REPLACE_WITH_SHA256",
+      "title": "ISO/IEC 42001 Governance Profile",
+      "jurisdiction": "global",
+      "tags": ["iso", "ai-governance"],
+      "deprecated": false,
+      "aliases": ["iso_42001@latest"]
+    },
+    {
+      "id": "nist_rmf-us",
+      "version": "1.1.0",
+      "file": "nist_rmf-us@1.1.0.yaml",
+      "checksum_sha256": "REPLACE_WITH_SHA256",
+      "title": "NIST AI RMF (US)",
+      "jurisdiction": "us",
+      "tags": ["nist", "risk"],
+      "deprecated": false,
+      "aliases": ["nist_rmf@latest"]
+    },
+    {
+      "id": "coso_erm",
+      "version": "1.0.0",
+      "file": "coso_erm@1.0.0.yaml",
+      "checksum_sha256": "REPLACE_WITH_SHA256",
+      "title": "COSO ERM",
+      "jurisdiction": "global",
+      "tags": ["coso", "enterprise-risk"],
+      "deprecated": false
+    },
+    {
+      "id": "ieee_7000",
+      "version": "1.0.0",
+      "file": "ieee_7000@1.0.0.yaml",
+      "checksum_sha256": "REPLACE_WITH_SHA256",
+      "title": "IEEE 7000 (Ethically Aligned Design)",
+      "jurisdiction": "global",
+      "tags": ["ieee", "ethics"],
+      "deprecated": false
+    },
+    {
+      "id": "oecd_principles",
+      "version": "1.0.0",
+      "file": "oecd_principles@1.0.0.yaml",
+      "checksum_sha256": "REPLACE_WITH_SHA256",
+      "title": "OECD AI Principles",
+      "jurisdiction": "global",
+      "tags": ["oecd", "principles"],
+      "deprecated": false
+    },
+    {
+      "id": "eu_ai_act",
+      "version": "0.9.0",
+      "file": "eu_ai_act@0.9.0.yaml",
+      "checksum_sha256": "REPLACE_WITH_SHA256",
+      "title": "EU AI Act (draft mapping)",
+      "jurisdiction": "eu",
+      "tags": ["eu", "regulation"],
+      "deprecated": false
+    }
+  ]
+}

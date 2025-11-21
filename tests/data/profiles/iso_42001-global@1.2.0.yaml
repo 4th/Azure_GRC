@@ -1,0 +1,17 @@
+profile_id: iso_42001-global
+version: 1.2.0
+controls:
+- control_id: ISO42001-6.3.2
+  rule_ref:
+    id: bias_fairness
+    version: '>=1.0.0'
+  weight: 0.12
+  evidence:
+  - type: json
+    payload:
+      FAIRNESS_SCORE: 0.86
+      DISPARITY_RATIO: 1.07
+      CONFIDENCE: 0.93
+      REPORT_AGE_DAYS: 30
+      SAMPLE_SIZE: 1234
+      DRIFT_PSI: 0.12

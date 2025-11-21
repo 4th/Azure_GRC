@@ -1,0 +1,51 @@
+# infra/pipelines/azure-devops/templates/variables-dev.yml
+# Centralized variables for the "dev" environment in Azure DevOps
+
+variables:
+  # -------------------------
+  # General
+  # -------------------------
+  environmentName: dev
+  vmImage: ubuntu-latest
+
+  # -------------------------
+  # Azure subscription / service connection
+  # -------------------------
+  # Name of the Azure DevOps service connection (ARM/OIDC) used by AzureCLI@2
+  azureServiceConnection: 'AZURE-SC-4TH-GRC-DEV'
+
+  # -------------------------
+  # Terraform (dev)
+  # -------------------------
+  tfWorkingDir: 'infra/terraform/environments/dev'
+  tfVarsFile: 'dev.tfvars'
+  terraformVersion: '1.9.0'
+
+  # -------------------------
+  # Container Registry (ACR)
+  # -------------------------
+  # ACR login server, e.g. 4thgrcdev.azurecr.io
+  containerRegistry: '4thgrcdev.azurecr.io'
+
+  # If you are *not* using a Docker service connection, you will also need:
+  # - variable group or pipeline variables for:
+  #   - ACR_USERNAME
+  #   - ACR_PASSWORD
+
+  # -------------------------
+  # Azure Resource Group & Container Apps Env
+  # -------------------------
+  resourceGroup: 'rg-4th-grc-dev'
+  containerAppEnv: 'cae-4th-grc-dev'
+
+  # -------------------------
+  # Container Apps – Service Names
+  # -------------------------
+  policyengineAppName: 'policyengine-svc-dev'
+  scorecardAppName: 'scorecard-app-dev'
+
+  # -------------------------
+  # Image Tags
+  # -------------------------
+  # Default tag strategy: use the commit SHA
+  imageTag: '$(Build.SourceVersion)'

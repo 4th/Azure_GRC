@@ -1,0 +1,189 @@
+# =======================================================================
+#  policies/profiles/nist_rmf-us.yaml — NIST AI RMF Profile (US) — DETAILED
+# -----------------------------------------------------------------------
+# Purpose
+#   Compose reusable rule modules to enforce NIST AI RMF (1.0) functions:
+#   GOVERN, MAP, MEASURE, MANAGE — with US-centric defaults.
+#
+# Read this first
+#   - This file EXTENDS ../base.yaml (global defaults).
+#   - Rule modules listed under `includes:` live in ../rules/*.yaml.
+#   - `params:` are the primary tuning knobs for thresholds and gates.
+#   - `obligations:` are actions the agent/UI/logging must take when allowed.
+#   - `risk_bands`, `hil_policy`, `severity_map`, `incident_thresholds` provide
+#     opinionated defaults you can read from rules to make consistent decisions.
+#
+# Migration
+#   - The `input` shape used by your PolicyLoader should be kept stable so you
+#     can port these YAML policies to OPA/Rego later with minimal changes.
+# =======================================================================
+
+profile: NIST_AI_RMF_US
+extends: ../base.yaml
+
+# Reusable rule modules to compose this profile
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_d609b159cc
+  # ---- GOVERN (roles, approvals, model/tool governance) ----
+  policy_enforcement_level: "strict"        # strict | moderate | permissive
+  allow_experimental_models: false          # use only approved/cataloged models
+  model_catalog_required: true              # require model to exist in catalog with approvals
+  tool_allowlist_required: true             # deny tool calls not in allowlist
+  change_ticket_required: true              # require approved change tickets for policy/prompt/model updates
+
+  # ---- MAP (context, data classification, purpose) ----
+  require_context_metadata: true            # require domain/purpose/stakeholders in input
+  allowed_domains: ["healthcare", "finance", "public", "generic"]
+  pii_allowed: false                        # PII processing disabled in baseline
+  data_residency_region: "US"               # enforce US data residency unless overlay loosens
+  cross_border_transfer: false              # disallow cross-border by default
+
+  # ---- MEASURE (metrics, risk thresholds, KPIs) ----
+  risk_cap: 0.65                            # maximum acceptable composite risk
+  bias_threshold: 0.15                      # allowable bias score
+  explainability_score_min: 0.70            # minimum explainability score
+  token_cap: 40000                          # daily token budget
+  cost_cap_usd: 8.00                        # daily spending cap (USD)
+  latency_target_ms: 1800                   # P95 target response time
+  error_rate_max: 0.03                      # 3% error ceiling
+
+  # ---- MANAGE (monitoring, retention, security, lifecycle) ----
+  log_retention_days: 180                   # longer evidence retention
+  data_retention_days: 30                   # working data retention
+  encryption_required: true                 # TLS 1.2+/storage encryption mandatory
+  tls_min_version: "TLS1.2"
+  retrain_cycle_days: 90
+  evaluation_interval_days: 30
+  drift_detection_enabled: true
+  availability_target_pct: 99.5
+
+  # ---- Region / legal ----
+  jurisdiction: "US"
+  regulatory_scope: ["NIST AI RMF 1.0", "ISO/IEC 42001 (reference)"]
+
+  # ---------------- Additional structured knobs ----------------
+  # Risk bands to normalize decisions across rules (use in rules/*.yaml)
+  risk_bands: &risk_bands_90ac914d96
+    low: {max: 0.40}
+    medium: {min: 0.40, max: 0.70}
+    high: {min: 0.70}
+
+  # Human-in-the-loop policy rules of thumb (consumed by human_review.yaml)
+  hil_policy: &hil_policy_4668ac274a
+    require_for:
+    - "input.kpis.risk_score >= 0.40"       # medium or higher risk
+    - "input.args.get('contains_pii', False) == True"
+    - "input.intent in ['approve_payment','bulk_export','delete_record']"
+    approver_roles: ["compliance_officer", "manager"]
+    timeout_seconds: 900                    # 15 minutes before auto-deny or fallback
+
+  # Severity map used by incident_response.yaml and logging_audit.yaml
+  severity_map: &severity_map_16aa99d777
+    token_budget_exceeded: "moderate"
+    model_not_approved: "high"
+    pii_not_allowed_for_this_profile: "critical"
+    network_domain_not_allowlisted: "high"
+    transparency_missing: "moderate"
+    encryption_not_enforced: "critical"
+    cross_border_blocked: "high"
+
+  # Incident thresholds for Sentinel/Monitor (consumed by incident_response.yaml)
+  incident_thresholds: &incident_thresholds_b2c566eef3
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10      # alert if cost exceeds cap by ≥10%
+
+  # Evidence schema hints for logging_audit.yaml (keys to include in logs)
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_a3ec9b28e6
+  # NIST-aligned disclosure (UI banner or prepend in messages)
+  disclosure_banner: >
+    This system operates under a NIST AI RMF–aligned governance profile.
+    Outputs are monitored for validity, reliability, safety, security,
+    accountability, and fairness.
+
+  # Default approval/escalation contact for HIL or exceptions
+  escalation_contact: "compliance-us@4th.is"
+
+  # Tag applied to decision logs for SIEM filters
+  audit_profile_tag: "NIST_AI_RMF_US"
+
+  # When allowed, cap generation more tightly at runtime (consumed by kpi_limits.yaml)
+  max_tokens: 2000
+  max_output_chars: 8000
+
+# --------------------------- Profile checklists --------------------------
+# These are convenience reminders for reviewers/operators; rules may also
+# read them (e.g., require model_certified true when true).
+checklists: &checklists_33859733ce
+  model_requirements:
+    certified: true
+    allowlist_only: true
+    min_eval_score: 0.85
+    vendor_security_review: true
+  data_requirements:
+    pii_scanner_enabled: true
+    redact_before_log: true
+    residency: "US-only"
+  process_requirements:
+    change_ticket_required: true
+    quarterly_policy_review: true
+
+# --------------------------- RMF crosswalk (info) ------------------------
+# Optional informative mapping to highlight which controls this profile
+# emphasizes. Authoritative mappings live in policies/mappings/controls.yaml.
+rmf_focus:
+  GOVERN:
+  - "Roles & responsibilities (RBAC)"
+  - "Approved model & tool catalogs"
+  - "Change management & documentation"
+  MAP:
+  - "Context metadata: intent, domain, stakeholders"
+  - "Data classification & residency"
+  MEASURE:
+  - "Risk KPIs, bias, explainability thresholds"
+  - "Latency, error rate, cost/token budgets"
+  MANAGE:
+  - "Decision logging & retention"
+  - "HIL gates & incident response"
+  - "Lifecycle: evaluation, drift, retrain"
+anchors:
+  risk_bands_90ac914d96: *risk_bands_90ac914d96
+  hil_policy_4668ac274a: *hil_policy_4668ac274a
+  severity_map_16aa99d777: *severity_map_16aa99d777
+  incident_thresholds_b2c566eef3: *incident_thresholds_b2c566eef3
+  params_d609b159cc: *params_d609b159cc
+  obligations_a3ec9b28e6: *obligations_a3ec9b28e6
+  checklists_33859733ce: *checklists_33859733ce

@@ -1,0 +1,177 @@
+rule_id: bias_fairness
+version: 1.0.0
+title: Bias & Fairness Guard
+description: Validate parity across protected groups, ensure audits are recent, and
+  monitor drift.
+engine_op: fairness_threshold
+metadata:
+  owner: Fourth Industrial Systems
+  category: ethics
+  tags:
+  - fairness
+  - bias
+  - parity
+  - audit
+  references:
+  - "ISO/IEC 42001: Governance/Risk \u2014 fairness"
+  - "NIST AI RMF \u2014 Map/Measure/Manage"
+  - "EU AI Act \u2014 risk management & monitoring"
+  last_reviewed: '2025-11-11'
+inputs:
+  required_evidence:
+  - type: blob_uri
+    pattern: audit/fairness/*.json
+  - type: blob_uri
+    pattern: metrics/fairness/*.json
+  - type: json
+    schema_hint: fairness_report_v1
+  params:
+    parity_metric: demographic_parity
+    min_score: 0.8
+    disparity_max_ratio: 1.25
+    confidence_min: 0.9
+    report_within_days: 90
+    evaluation_window_days: 30
+    sample_size_min: 500
+    drift_max_psi: 0.2
+    population_groups:
+    - attribute: sex
+      values:
+      - F
+      - M
+    - attribute: race
+      values:
+      - A
+      - B
+      - H
+      - W
+      - O
+    - attribute: age_bucket
+      values:
+      - 18-24
+      - 25-44
+      - 45-64
+      - 65+
+outputs:
+  pass_criteria: FAIRNESS_SCORE >= min_score AND DISPARITY_RATIO <= disparity_max_ratio
+    AND CONFIDENCE >= confidence_min AND REPORT_AGE_DAYS <= report_within_days AND
+    SAMPLE_SIZE >= sample_size_min AND DRIFT_PSI <= drift_max_psi
+  signals:
+  - FAIRNESS_SCORE
+  - DISPARITY_RATIO
+  - CONFIDENCE
+  - REPORT_AGE_DAYS
+  - SAMPLE_SIZE
+  - DRIFT_PSI
+  - PARITY_METRIC
+  - GROUPS_EVALUATED
+remediation:
+  playbook: bias_mitigation@v2
+  guidance: Reweight data, add constraints, or post-process for parity; retrain if
+    drift exceeds PSI; document decisions for HITL approval.
+validation:
+  schema_version: '1.0'
+  constraints:
+  - field: params.min_score
+    op: between
+    args:
+    - 0.0
+    - 1.0
+  - field: params.confidence_min
+    op: between
+    args:
+    - 0.0
+    - 1.0
+  - field: params.disparity_max_ratio
+    op: gte
+    args:
+    - 1.0
+  - field: params.report_within_days
+    op: gte
+    args:
+    - 1
+  - field: params.sample_size_min
+    op: gte
+    args:
+    - 1
+  - field: params.drift_max_psi
+    op: between
+    args:
+    - 0.0
+    - 1.0
+rationale:
+  business_value: Reduces regulatory, ethical, and operational risk; improves trust
+    and audit readiness.
+  threats_mitigated:
+  - Regulatory non-compliance
+  - Data leakage
+  - Unfair outcomes
+  - Service disruptions
+severity_mapping:
+  pass:
+    severity: info
+    action: record
+  warn:
+    severity: medium
+    action: monitor_and_plan
+  fail:
+    severity: high
+    action: remediate_or_block
+scoring:
+  weight_default: 0.05
+  calculation: 1.0 for pass; 0.5 for warn; 0.0 for fail
+  aggregation: weighted_mean_across_controls
+exemptions:
+  allowed: true
+  policy: Temporary exemptions require risk acceptance and expiration date.
+  required_approvals:
+  - Product Owner
+  - GRC Lead
+  max_duration_days: 90
+  ticket_system: Jira
+audit:
+  record_fields:
+  - control_id
+  - rule_id
+  - status
+  - rationale
+  - signals
+  - evidence_refs
+  - timestamp
+  - actor
+  retention_days: 3650
+hitl:
+  enabled: true
+  channels:
+  - Teams
+  - Jira
+  sla_hours: 24
+  override_requires_reason: true
+alerts:
+  routes:
+  - email:grc@4th.is
+  - teams:#grc-alerts
+  dedup_window_minutes: 60
+evaluation:
+  logic_notes: Engine computes signals from evidence; evaluates pass_criteria; maps
+    to status; emits Finding with signals and remediation.
+  pseudocode:
+  - signals = compute_signals(evidence, params)
+  - status = evaluate(pass_criteria, signals, params)
+  - emit_finding(status, rationale, signals, remediation)
+evidence_schemas:
+  blob_uri.json:
+    hint: JSON array or object with fields referenced by the rule (see signals)
+  inline.json:
+    hint: Direct JSON payload provided by agent/evaluator
+examples:
+  good: All metrics within thresholds; complete artifacts; no violations found.
+  bad: Missing audit logs and TLS <1.2 on one endpoint; non-allowlisted model detected.
+risk_context:
+  impact: Unfair outcomes can harm protected classes and trigger regulatory action.
+  likelihood: Medium without regular audits and drift monitoring.
+signals_details:
+  FAIRNESS_SCORE: Computed parity metric value (0..1)
+  DISPARITY_RATIO: Worst-group to best-group performance ratio
+  CONFIDENCE: Statistical confidence for FAIRNESS_SCORE
+  DRIFT_PSI: Population Stability Index for drift (0..1)

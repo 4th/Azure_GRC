@@ -1,0 +1,203 @@
+# =======================================================================
+#  policies/profiles/soc2-tsc.yaml — SOC 2 Trust Services Criteria Overlay
+# -----------------------------------------------------------------------
+# Purpose
+#   Overlay profile aligned to SOC 2 (AICPA) Trust Services Criteria:
+#   Security (Common), Availability, Confidentiality, Processing Integrity, Privacy.
+#   Emphasizes controls evidence, change management, access security,
+#   vendor oversight, monitoring, and incident response.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - Parameters set expectations that map to SOC 2 control points; auditors
+#     will test design & operating effectiveness via evidence (logs, tickets).
+# =======================================================================
+
+profile: SOC2_TSC
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_4aebd88784
+  # --- Security (Common Criteria) ---
+  policy_enforcement_level: "strict"
+  rbac_enabled: true
+  least_privilege_enforced: true
+  mfa_required_for_admins: true
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  vulnerability_management_program_defined: true
+  dependency_scanning_required: true
+  code_review_required: true
+  secure_software_development_lifecycle_in_place: true
+  logging_and_monitoring_required: true
+  anti_malware_controls_expected: true
+  security_awareness_training_required: true
+
+  # --- Availability ---
+  availability_target_pct: 99.5
+  capacity_planning_process_defined: true
+  bc_dr_plan_defined: true
+  recovery_time_objective_minutes: 60
+  backup_and_restore_defined: true
+  backups_test_frequency_days: 30
+
+  # --- Confidentiality ---
+  data_classification_required: true
+  network_segmentation_required: true
+  egress_filtering_required: true
+  confidentiality_agreements_required: true
+
+  # --- Processing Integrity ---
+  processing_integrity_controls_defined: true
+  change_ticket_required: true
+  segregation_of_duties_enabled: true
+  monitoring_of_processing_errors_enabled: true
+  error_rate_max: 0.03
+
+  # --- Privacy (when handling personal data) ---
+  privacy_notice_published: true
+  privacy_program_owner_defined: true
+  consent_management_enabled: true
+  data_minimization_required: true
+  retention_schedule_defined: true
+  dsar_channels_configured: true
+  dsar_response_sla_days: 30
+
+  # --- Vendors / Subservice Organizations ---
+  supplier_due_diligence_required: true
+  soc2_reports_expected_from_vendors: true       # SOC 2 Type II preferred or alternative assurance
+  dpa_required_for_processors: true
+
+  # --- KPIs & Operational overlays ---
+  risk_cap: 0.65
+  bias_threshold: 0.15
+  explainability_score_min: 0.70
+  token_cap: 45000
+  cost_cap_usd: 9.00
+  latency_target_ms: 1800
+  log_retention_days: 365
+  data_retention_days: 30
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_482d50b9ba
+    low: {max: 0.40}
+    medium: {min: 0.40, max: 0.65}
+    high: {min: 0.65}
+
+  hil_policy: &hil_policy_c3952b8e7b
+    require_for:
+    - "input.kpis.risk_score >= 0.40"
+    - "input.args.get('contains_pii', False) == True"
+    - "input.intent in ['bulk_export','delete_record']"
+    approver_roles: ["security_officer", "privacy_officer", "compliance_officer"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_68e7d430ec
+    token_budget_exceeded: "moderate"
+    model_not_approved: "high"
+    pii_not_allowed_for_this_profile: "critical"
+    encryption_not_enforced: "critical"
+    change_not_approved: "high"
+    network_domain_not_allowlisted: "high"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "change_request_id"
+  - "incident_ticket_id"
+  - "vendor_soc2_report_id"
+
+  jurisdiction: "global"
+  regulatory_scope: ["SOC 2 Trust Services Criteria (AICPA)"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_4ed82038c1
+  disclosure_banner: >
+    This system enforces SOC 2-aligned controls for Security (common criteria),
+    Availability, Confidentiality, Processing Integrity, and Privacy, with
+    strong access control, encryption, change management, monitoring, and
+    vendor oversight.
+  escalation_contact: "soc2@4th.is"
+  audit_profile_tag: "SOC2_TSC"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_4c798f70e2
+  security_common:
+    sdlc_defined: true
+    mfa_enabled_for_admins: true
+    logging_and_monitoring_enabled: true
+    vulnerability_management_in_place: true
+  availability:
+    bc_dr_plan_tested: true
+    capacity_plan_reviewed: true
+    backups_tested: true
+  confidentiality:
+    data_classification_in_place: true
+    ndas_and_confidentiality_agreements_active: true
+    segmentation_controls_reviewed: true
+  processing_integrity:
+    change_management_in_place: true
+    segregation_of_duties_in_place: true
+    processing_error_monitoring_active: true
+  privacy:
+    privacy_notice_current: true
+    dsar_workflows_configured: true
+    retention_schedule_maintained: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+soc2_focus:
+  security_common:
+  - "Logical/physical controls, access management, change mgmt, monitoring"
+  availability:
+  - "Capacity planning, backup/restore, DR, uptime targets"
+  confidentiality:
+  - "Data classification, encryption, NDA/agreements, network controls"
+  processing_integrity:
+  - "Authorized, complete, accurate, timely, and valid processing"
+  privacy:
+  - "Notice, choice/consent, collection, use, retention, access, disclosure, quality, monitoring & enforcement"
+anchors:
+  risk_bands_482d50b9ba: *risk_bands_482d50b9ba
+  hil_policy_c3952b8e7b: *hil_policy_c3952b8e7b
+  severity_map_68e7d430ec: *severity_map_68e7d430ec
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_4aebd88784: *params_4aebd88784
+  obligations_4ed82038c1: *obligations_4ed82038c1
+  checklists_4c798f70e2: *checklists_4c798f70e2

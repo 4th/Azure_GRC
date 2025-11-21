@@ -1,0 +1,206 @@
+# =======================================================================
+#  policies/profiles/healthcare.yaml — Healthcare Overlay
+# -----------------------------------------------------------------------
+# Purpose
+#   Sector profile for healthcare & life sciences with overlays for:
+#   - FDA Software as a Medical Device (SaMD) policies & guidance
+#   - EU MDR/IVDR conformity (device software, diagnostics)
+#   - ISO 14971 risk management, IEC 62304 software lifecycle
+#   - ISO 13485 QMS expectations and post-market surveillance (PMS)
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - Coordinate with Regulatory/Quality; this is an operational overlay.
+# =======================================================================
+
+profile: HEALTHCARE_SaMD
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_2f2709e0e3
+  # --- Clinical & regulatory posture ---
+  policy_enforcement_level: "strict"
+  clinical_use_declared_required: true
+  device_classification_required: true
+  risk_management_plan_required: true
+  software_safety_class: "B"                           # IEC 62304 A/B/C
+  clinical_evaluation_required: true
+  human_review_required: true
+  post_market_surveillance_plan_required: true
+  vigilance_reporting_timeline_days: 15
+  fda_mdr_reporting_timeline_days: 30
+
+  # --- Data privacy & PHI/PII ---
+  phi_allowed: true
+  pii_allowed: true
+  minimum_necessary_enforced: true
+  data_residency_region: "regional"
+  cross_border_transfer: true
+  dpa_required_for_processors: true
+  deidentification_preferred_for_research: true
+
+  # --- Model/algorithm governance ---
+  model_inventory_required: true
+  change_ticket_required: true
+  premarket_change_assessment_required: true
+  locked_model_change_control: true
+  real_world_performance_monitoring_required: true
+  bias_threshold: 0.10
+  explainability_score_min: 0.75
+  performance_acceptance_criteria_defined: true
+  clinical_risk_cap: 0.50
+
+  # --- Cybersecurity ---
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  sbom_required: true
+  vulnerability_management_program_defined: true
+  code_signing_required_for_release: true
+  tamper_evidence_required: true
+  incident_reporting_timeline_hours: 24
+
+  # --- QMS & documentation ---
+  quality_management_system_required: true
+  document_control_required: true
+  training_records_required: true
+  supplier_qualification_required: true
+
+  # --- KPIs & reliability ---
+  risk_cap: 0.50
+  token_cap: 40000
+  cost_cap_usd: 8.00
+  latency_target_ms: 1500
+  error_rate_max: 0.02
+  availability_target_pct: 99.9
+
+  # --- Lifecycle & monitoring ---
+  evaluation_interval_days: 30
+  retrain_cycle_days: 180
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_d8df7dee31
+    low: {max: 0.30}
+    medium: {min: 0.30, max: 0.50}
+    high: {min: 0.50}
+
+  hil_policy: &hil_policy_1833302e77
+    require_for:
+    - "input.kpis.risk_score >= 0.30"
+    - "input.args.get('contains_phi', False) == True"
+    - "input.intent in ['diagnose','triage','treatment_recommendation','override_alert']"
+    - "input.context.get('device_class') in ['II','III','IIa','IIb','III']"
+    approver_roles: ["clinician", "clinical_safety_officer", "quality_manager"]
+    timeout_seconds: 1200
+
+  severity_map: &severity_map_4349c8e332
+    clinical_risk_cap_exceeded: "critical"
+    model_not_approved: "high"
+    sbom_missing: "high"
+    encryption_not_enforced: "critical"
+    transparency_missing: "moderate"
+    phi_minimum_necessary_violation: "high"
+    change_not_approved: "high"
+
+  incident_thresholds: &incident_thresholds_2a12963227
+    consecutive_denies_for_user: {count: 2, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 3, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.context.device_class"
+  - "input.context.clinical_use"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "risk_management_file_id"
+  - "clinical_evaluation_report_id"
+  - "pms_plan_id"
+  - "sbom_id"
+
+  jurisdiction: "global (healthcare)"
+  regulatory_scope: ["FDA SaMD", "EU MDR/IVDR", "ISO 14971", "IEC 62304", "ISO 13485"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_4e701ae07d
+  disclosure_banner: >
+    This system applies healthcare controls for SaMD, MDR/IVDR, ISO 14971/62304/13485,
+    including clinician-in-the-loop, post-market surveillance, cybersecurity, and
+    quality documentation.
+  escalation_contact: "regulatory@4th.is"
+  audit_profile_tag: "HEALTHCARE_SaMD"
+  max_tokens: 1700
+  max_output_chars: 6500
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_a63aa10ece
+  regulatory_and_clinical:
+    clinical_use_declared: true
+    device_classification_documented: true
+    clinical_evaluation_completed: true
+    premarket_change_assessment_defined: true
+  risk_and_quality:
+    risk_management_plan_defined: true
+    quality_management_system_in_place: true
+    document_control_active: true
+    training_records_maintained: true
+  cybersecurity:
+    sbom_available: true
+    vulnerability_management_in_place: true
+    code_signing_enforced: true
+    incident_response_workflow_configured: true
+  post_market:
+    pms_plan_defined: true
+    vigilance_reporting_workflows_configured: true
+    rwp_monitoring_active: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+healthcare_focus:
+  fda_samd:
+  - "Clinical evaluation, real-world performance, change control for AI/ML"
+  eu_mdr_ivdr:
+  - "Device classification, GSPR, PMS/PMPF, vigilance reporting"
+  iso_14971:
+  - "Risk management file; hazard analysis; risk controls & residual risk"
+  iec_62304:
+  - "Software safety class, lifecycle processes, verification/validation"
+  iso_13485:
+  - "QMS, document control, training, CAPA, supplier qualification"
+anchors:
+  risk_bands_d8df7dee31: *risk_bands_d8df7dee31
+  hil_policy_1833302e77: *hil_policy_1833302e77
+  severity_map_4349c8e332: *severity_map_4349c8e332
+  incident_thresholds_2a12963227: *incident_thresholds_2a12963227
+  params_2f2709e0e3: *params_2f2709e0e3
+  obligations_4e701ae07d: *obligations_4e701ae07d
+  checklists_a63aa10ece: *checklists_a63aa10ece

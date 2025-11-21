@@ -1,0 +1,211 @@
+# =======================================================================
+#  policies/profiles/coso_erm.yaml — COSO ERM Risk Posture & Thresholds
+# -----------------------------------------------------------------------
+# Purpose
+#   Overlay that encodes COSO ERM principles (2017) for AI/ML operations:
+#   - Governance & culture (roles, tone, competence)
+#   - Strategy & objective-setting (risk appetite, business context)
+#   - Performance (risk identification, assessment, prioritization, response)
+#   - Review & revision (lessons learned, change)
+#   - Information, communication & reporting (ICR)
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses shared rule modules in ../rules/*.yaml.
+#   - Tune thresholds to your enterprise risk appetite and tolerances.
+# =======================================================================
+
+profile: COSO_ERM
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_f4a070c6ec
+  # --- Governance & Culture ---
+  policy_enforcement_level: "strict"
+  risk_governance_committee_enabled: true
+  roles_and_responsibilities_defined: true
+  competence_training_required: true
+  incentives_aligned_with_risk: true
+
+  # --- Strategy & Objective-Setting ---
+  risk_appetite_statement_defined: true
+  risk_tolerances_defined: true
+  objectives_cataloged: true
+  strategic_context_documented: true
+
+  # --- Performance (Risk Assessment) ---
+  # Risk scoring combines likelihood (0..1) x impact (0..1) with multipliers.
+  likelihood_weight: 0.5
+  impact_weight: 0.5
+  regulatory_multiplier: 1.25
+  safety_multiplier: 1.50
+  financial_multiplier: 1.10
+
+  # Heatmap thresholds (tune for your org)
+  risk_bands: &risk_bands_162e7acf9b
+    low: {max: 0.30}
+    medium: {min: 0.30, max: 0.60}
+    high: {min: 0.60}
+
+  # Appetite & tolerance (per dimension)
+  appetite: &appetite_24b663299a
+    operational: 0.50
+    compliance: 0.40
+    financial: 0.45
+    safety: 0.30
+    reputation: 0.40
+  tolerance_pct_over_appetite: 10
+
+  # KRIs / KPIs that feed risk
+  kris:
+  - "incident_rate_30d"
+  - "p1_p2_incidents_90d"
+  - "model_drift_score"
+  - "bias_metric_delta"
+  - "sla_breach_count"
+  kpi_to_risk_map:
+    error_rate_max: 0.03
+    latency_target_ms: 1800
+    availability_target_pct: 99.5
+
+  # Default operational caps
+  risk_cap: 0.65
+  token_cap: 45000
+  cost_cap_usd: 9.00
+  latency_target_ms: 1800
+  bias_threshold: 0.15
+  explainability_score_min: 0.70
+  log_retention_days: 365
+  data_retention_days: 30
+
+  # Risk response strategy matrix (accept/avoid/reduce/share)
+  response_strategy:
+    low: "accept"
+    medium: "reduce"
+    high: "avoid_or_share"
+
+  # Triggers for Human-in-the-Loop & escalation
+  hil_policy: &hil_policy_91320f263c
+    require_for:
+    - "input.kpis.risk_score >= 0.40"
+    - "input.intent in ['bulk_export','delete_record','approve_vendor','change_release']"
+    - "any(x in input.context.get('domains', []) for x in ['safety','compliance'])"
+    approver_roles: ["risk_owner", "service_owner", "compliance_officer"]
+    timeout_seconds: 900
+
+  # Severity mapping for COSO ERM
+  severity_map: &severity_map_acbef00664
+    risk_appetite_exceeded: "high"
+    risk_tolerance_exceeded: "high"
+    transparency_missing: "moderate"
+    change_not_approved: "high"
+    encryption_not_enforced: "critical"
+
+  # Incident & threshold alerts
+  incident_thresholds: &incident_thresholds_4a2650b1fd
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  # Scenario analysis & stress testing
+  scenario_analysis_frequency_days: 90
+  black_swan_scenarios_defined: true
+  tabletop_exercises_required: true
+
+  # Evidence & reporting
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.kpis.risk_score"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "risk_register_item_id"
+  - "risk_response_strategy"
+  - "management_action_owner"
+  - "next_review_date"
+
+  jurisdiction: "enterprise governance"
+  regulatory_scope: ["COSO ERM (2017)"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_152a20d80d
+  disclosure_banner: >
+    This system applies COSO ERM-aligned risk posture: appetite & tolerance gates,
+    risk heatmap thresholds, HIL escalation, and response strategies (accept/avoid/
+    reduce/share), with evidence for the risk register and reporting.
+  escalation_contact: "erm@4th.is"
+  audit_profile_tag: "COSO_ERM"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_6469803a13
+  governance_and_culture:
+    roles_and_responsibilities_approved: true
+    competence_training_program_active: true
+    incentives_reviewed_for_risk_alignment: true
+  strategy_and_objectives:
+    risk_appetite_statement_published: true
+    tolerances_defined_and_communicated: true
+    objectives_linked_to_risks: true
+  performance:
+    risk_identification_process_active: true
+    heatmap_review_cadence_set: true
+    response_plans_documented: true
+  review_and_revision:
+    lessons_learned_cadence_defined: true
+    control_effectiveness_reviewed: true
+    thresholds_tuned_after_incidents: true
+  information_and_reporting:
+    risk_dashboard_published: true
+    escalation_paths_documented: true
+    board_reporting_cadence_defined: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+coso_erm_focus:
+  governance_culture:
+  - "Tone at the top, roles, ethics, competence, structure"
+  strategy_objective_setting:
+  - "Business context, risk appetite & tolerances, strategic objectives"
+  performance:
+  - "Identify, assess, prioritize risks; implement responses; develop portfolio view"
+  review_revision:
+  - "Assess substantial changes, review performance, pursue improvement"
+  information_communication_reporting:
+  - "Leverage relevant information, communicate internally/externally, report risk"
+anchors:
+  risk_bands_162e7acf9b: *risk_bands_162e7acf9b
+  appetite_24b663299a: *appetite_24b663299a
+  hil_policy_91320f263c: *hil_policy_91320f263c
+  severity_map_acbef00664: *severity_map_acbef00664
+  incident_thresholds_4a2650b1fd: *incident_thresholds_4a2650b1fd
+  params_f4a070c6ec: *params_f4a070c6ec
+  obligations_152a20d80d: *obligations_152a20d80d
+  checklists_6469803a13: *checklists_6469803a13

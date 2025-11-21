@@ -1,0 +1,27 @@
+site_name: 4th.GRC
+theme:
+  name: material
+
+plugins:
+  - gen-files:
+      scripts:
+        - docs/gen_api_pages.py
+  - literate-nav:
+      nav_file: api/SUMMARY.md
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: ["."]
+          options:
+            show_source: false
+
+nav:
+  - Home: SYSTEM_CARD.md
+  - Architecture Overview: ARCHITECTURE_OVERVIEW.md
+  - Governance Playbook: GOVERNANCE_PLAYBOOK.md
+  - Policy & Profile Schema: SCHEMA_POLICY_PROFILE.md
+  - Model Card Template: MODEL_CARD_TEMPLATE.md
+  - API Overview: API.md
+  - API Reference:
+      - Overview: api/index.md
+      # The rest of the API tree under `api/` will be auto-generated at build time

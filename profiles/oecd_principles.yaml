@@ -1,0 +1,159 @@
+# =======================================================================
+#  policies/profiles/oecd_principles.yaml — OECD AI Principles Profile
+# -----------------------------------------------------------------------
+# Purpose
+#   Align agent behavior with the OECD AI Principles:
+#   1) Inclusive growth & well-being
+#   2) Human-centered values & fairness
+#   3) Transparency & explainability
+#   4) Robustness, security & safety
+#   5) Accountability
+#
+# Notes
+#   - EXTENDS ../base.yaml for global defaults.
+#   - Uses reusable rule modules from ../rules/*.yaml.
+#   - Parameters are set to a "balanced but responsible" posture.
+# =======================================================================
+
+profile: OECD_PRINCIPLES
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_d13d180d08
+  # Governance & values
+  policy_enforcement_level: "moderate"         # balanced baseline
+  allow_experimental_models: false
+  model_catalog_required: true
+  tool_allowlist_required: true
+  human_review_required: true                  # human-centric value emphasis
+
+  # Inclusion & well-being
+  impact_assessment_required: true             # lightweight impact check before high-impact actions
+  accessibility_guidelines_required: true      # e.g., plain language, alt-text obligations
+
+  # Transparency & explainability
+  disclosure_required: true
+  explainability_score_min: 0.70
+  require_context_metadata: true
+  evidence_fields:
+  - "trace_id"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "result.allow"
+  - "result.deny_reasons"
+  - "result.obligations"
+
+  # Fairness & bias
+  bias_threshold: 0.20                          # baseline threshold
+  fairness_review_required: true                # prompt/outcome checks for sensitive contexts
+
+  # Robustness, security & safety
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  error_rate_max: 0.04
+  latency_target_ms: 2000
+  availability_target_pct: 99.0
+  safety_filters_required: true
+
+  # Privacy & data
+  pii_allowed: false
+  dpa_required_for_processors: true
+  data_residency_region: "global"
+  cross_border_transfer: true                   # permitted if lawful basis/DPA present
+  data_retention_days: 30
+  log_retention_days: 120
+
+  # KPIs / cost
+  risk_cap: 0.70
+  token_cap: 45000
+  cost_cap_usd: 9.00
+
+  # Lifecycle & improvement
+  evaluation_interval_days: 30
+  retrain_cycle_days: 120
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true
+
+  # Structured helpers
+  risk_bands: &risk_bands_90ac914d96
+    low: {max: 0.40}
+    medium: {min: 0.40, max: 0.70}
+    high: {min: 0.70}
+  hil_policy: &hil_policy_cb6ef5a554
+    require_for:
+    - "input.kpis.risk_score >= 0.40"
+    - "input.args.get('contains_pii', False) == True"
+    - "input.intent in ['approve_payment','bulk_export','delete_record']"
+    approver_roles: ["ethics_officer", "manager"]
+    timeout_seconds: 900
+  severity_map: &severity_map_a46abb291f
+    token_budget_exceeded: "moderate"
+    model_not_approved: "high"
+    pii_not_allowed_for_this_profile: "critical"
+    transparency_missing: "moderate"
+    encryption_not_enforced: "critical"
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_7de2223a1a
+  disclosure_banner: >
+    This system follows the OECD AI Principles with emphasis on transparency,
+    fairness, robustness, and accountability. Certain actions may require
+    human review and additional impact assessment.
+  escalation_contact: "oecd-profile@4th.is"
+  audit_profile_tag: "OECD_PRINCIPLES"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_ea2beee1ef
+  inclusion_and_wellbeing:
+    performs_impact_assessment: true
+    accessibility_considerations: true
+  accountability:
+    decision_logging_enabled: true
+    roles_and_responsibilities_defined: true
+    complaints_mechanism_documented: true
+
+# ----------------------- OECD crosswalk (informative) --------------------
+oecd_focus:
+  inclusive_growth_and_wellbeing:
+  - "Impact assessment for high-impact use cases"
+  - "Accessibility and inclusion checks"
+  human_centered_values_and_fairness:
+  - "Bias thresholds and fairness reviews"
+  - "Human-in-the-loop for sensitive actions"
+  transparency_and_explainability:
+  - "Disclosure banners and traceability"
+  - "Explainability score minimums"
+  robustness_security_safety:
+  - "Error ceilings, safety filters, encryption"
+  accountability:
+  - "Decision logging and designated responsibility"
+anchors:
+  risk_bands_90ac914d96: *risk_bands_90ac914d96
+  hil_policy_cb6ef5a554: *hil_policy_cb6ef5a554
+  severity_map_a46abb291f: *severity_map_a46abb291f
+  params_d13d180d08: *params_d13d180d08
+  obligations_7de2223a1a: *obligations_7de2223a1a
+  checklists_ea2beee1ef: *checklists_ea2beee1ef

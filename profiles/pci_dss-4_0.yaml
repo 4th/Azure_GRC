@@ -1,0 +1,204 @@
+# =======================================================================
+#  policies/profiles/pci_dss-4_0.yaml — PCI DSS 4.0 Profile (Cardholder Data)
+# -----------------------------------------------------------------------
+# Purpose
+#   Constrain agent behavior around Cardholder Data (CHD) and Sensitive
+#   Authentication Data (SAD) per PCI DSS 4.0. Emphasizes scoping,
+#   network segmentation, strong cryptography, key management, logging,
+#   vulnerability management, and restricted data retention.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Composes reusable rule modules from ../rules/*.yaml.
+#   - Parameters align to PCI control families where practical. This is an
+#     operational overlay; consult your QSA for authoritative mappings.
+# =======================================================================
+
+profile: PCI_DSS_4_0
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_8b99102445
+  # --- Scope & segmentation (Req. 1, 12) ---
+  policy_enforcement_level: "strict"
+  cde_scoped_only: true                           # process CHD/SAD only within CDE scope
+  network_segmentation_required: true             # minimize scope via segmentation
+  egress_filtering_required: true
+  allowed_domains_cde_only: true                  # talk only to CDE-approved endpoints
+
+  # --- Strong cryptography & key mgmt (Req. 3, 4) ---
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  fips_140_3_modules_preferred: true
+  pan_truncation_required: true                   # display PAN as first6+last4
+  sad_storage_prohibited: true                    # CVV2/iCVV/CSC never stored
+  key_management_process_defined: true
+  crypto_algo_policy: ["AES-256-GCM", "RSA-2048+", "ECC-P256+"]
+
+  # --- Access control & authN (Req. 7, 8) ---
+  rbac_enabled: true
+  least_privilege_enforced: true
+  mfa_required_for_admins: true
+  unique_user_identification_required: true
+  session_timeout_minutes: 15
+
+  # --- Vulnerability management (Req. 6, 11) ---
+  dependency_scanning_required: true
+  code_review_required: true
+  change_ticket_required: true
+  asv_scans_required: true                        # external scan program
+  pen_test_cadence_days: 365
+
+  # --- Logging & monitoring (Req. 10) ---
+  enable_decision_logging: true
+  decision_log_format: "json"
+  include_trace_id: true
+  log_retention_days: 365
+  time_sync_required: true                        # NTP time sync
+
+  # --- Third parties/service providers (Req. 12) ---
+  supplier_due_diligence_required: true
+  service_provider_acknowledges_pci: true         # AOC/ROC required
+
+  # --- Data handling (Req. 3, 9) ---
+  pii_allowed: true                                # CHD is personal; enforce specific PCI rules below
+  contains_chd_required_flag: true                 # input.args.contains_chd
+  contains_sad_required_flag: true                 # input.args.contains_sad
+  data_retention_days: 0                           # default: do not retain CHD/SAD
+  log_redaction_pan_enabled: true                  # mask PAN in logs
+  pan_detection_enabled: true                      # Luhn/regex detection in output_guardrails
+
+  # --- Incident/breach (Req. 12) ---
+  incident_response_plan_defined: true
+  incident_reporting_timeline_hours: 24
+
+  # --- KPIs / reliability (operational overlays) ---
+  risk_cap: 0.55
+  bias_threshold: 0.15
+  explainability_score_min: 0.70
+  token_cap: 35000
+  cost_cap_usd: 7.00
+  latency_target_ms: 1500
+  error_rate_max: 0.02
+  availability_target_pct: 99.9
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_c21def5be9
+    low: {max: 0.30}
+    medium: {min: 0.30, max: 0.55}
+    high: {min: 0.55}
+
+  hil_policy: &hil_policy_6398f60c4c
+    require_for:
+    - "input.args.get('contains_chd', False) == True"
+    - "input.args.get('contains_sad', False) == True"
+    - "input.intent in ['bulk_export','store_card','transmit_card']"
+    approver_roles: ["pci_officer", "security_officer"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_40ab4c5d8e
+    sad_storage_attempt: "critical"
+    pan_unmasked_in_output: "high"
+    encryption_not_enforced: "critical"
+    network_domain_not_allowlisted: "high"
+    vendor_pci_ack_missing: "high"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "input.args.contains_chd"
+  - "input.args.contains_sad"
+  - "result.allow"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "service_provider_aoc_id"
+  - "pen_test_report_id"
+
+  jurisdiction: "global (PCI)"
+  regulatory_scope: ["PCI DSS 4.0"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_acc00af55c
+  disclosure_banner: >
+    This system enforces PCI DSS 4.0 constraints for cardholder data.
+    Storage of SAD is prohibited; PAN must be truncated or tokenized; all
+    traffic is encrypted; activities are logged and monitored.
+  escalation_contact: "pci@4th.is"
+  audit_profile_tag: "PCI_DSS_4_0"
+  max_tokens: 1600
+  max_output_chars: 6000
+  pan_masking_enabled: true
+  sad_storage_prohibited: true
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_cf56f04782
+  scoping_and_segmentation:
+    cde_defined_and_documented: true
+    segmentation_controls_in_place: true
+  crypto_and_key_mgmt:
+    key_management_sop_defined: true
+    algorithm_policy_defined: true
+  access_and_authn:
+    mfa_enabled_for_admins: true
+    unique_ids_enforced: true
+    session_timeouts_configured: true
+  logging_and_monitoring:
+    time_sync_configured: true
+    log_review_schedule_defined: true
+  testing:
+    asv_program_active: true
+    pen_test_scheduled: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+pci_dss_focus:
+  requirement_1:
+  - "Network security controls; segmentation to reduce CDE scope"
+  requirement_3_and_4:
+  - "Protect stored account data; strong cryptography and key management"
+  requirement_7_and_8:
+  - "Restrict access to system components and CHD by business need-to-know"
+  - "Identify and authenticate users and processes"
+  requirement_10:
+  - "Log and monitor all access to system components and CHD"
+  requirement_11:
+  - "Test security of systems and networks regularly (ASV, pen tests)"
+  requirement_12:
+  - "Support information security with organizational policies & programs"
+anchors:
+  risk_bands_c21def5be9: *risk_bands_c21def5be9
+  hil_policy_6398f60c4c: *hil_policy_6398f60c4c
+  severity_map_40ab4c5d8e: *severity_map_40ab4c5d8e
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_8b99102445: *params_8b99102445
+  obligations_acc00af55c: *obligations_acc00af55c
+  checklists_cf56f04782: *checklists_cf56f04782

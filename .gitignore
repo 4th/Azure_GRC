@@ -1,0 +1,70 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.pyo
+*.pyd
+*.so
+*.log
+
+# Virtual environments
+.venv/
+env/
+venv/
+ENV/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.nbconvert.ipynb
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Build / distribution
+build/
+dist/
+*.egg
+*.manifest
+*.spec
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Azure & Docker
+*.azure/
+*.bicepParameter.json
+docker-compose.override.yml
+docker-compose.local.yml
+*.dockerfile
+*.tar
+*.log
+
+# Streamlit cache
+.streamlit/
+__pycache__/
+.cache/
+logs/
+nohup.out
+
+# Tests and reports
+htmlcov/
+.coverage
+.tox/
+.pytest_cache/
+coverage.xml
+
+# Misc
+*.bak
+*.tmp
+*.swp
+*.lock

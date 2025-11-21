@@ -1,0 +1,48 @@
+# infra/container-images/scorecard-app/containerapp.yaml
+#
+# Example Azure Container App spec for the 4th.GRC TrustOps Scorecard (Streamlit).
+# Replace <...> values with your actual subscription, RG, env, and registry info.
+
+apiVersion: 2024-03-01
+kind: ContainerApp
+metadata:
+  name: scorecard-app
+  annotations:
+    managed-by: 4th-grc
+spec:
+  environmentId: /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RG_NAME>/providers/Microsoft.App/managedEnvironments/<ENV_NAME>
+  ingress:
+    external: true
+    targetPort: 8501
+    transport: auto
+  registryCredentials:
+    - server: <ACR_LOGIN_SERVER>          # e.g. myregistry.azurecr.io
+      username: <ACR_USERNAME>            # or use managed identity in real setups
+      passwordSecretRef: acr-password
+  secrets:
+    - name: acr-password
+      value: "<ACR_PASSWORD_PLACEHOLDER>"
+    - name: cosmos-endpoint
+      value: "<COSMOS_ENDPOINT_PLACEHOLDER>"
+    - name: cosmos-key
+      value: "<COSMOS_KEY_PLACEHOLDER>"
+
+  template:
+    containers:
+      - name: scorecard-app
+        image: <ACR_LOGIN_SERVER>/scorecard-app:latest
+        resources:
+          cpu: 0.5
+          memory: 1Gi
+        env:
+          - name: COSMOS_ENDPOINT
+            secretRef: cosmos-endpoint
+          - name: COSMOS_KEY
+            secretRef: cosmos-key
+          - name: STREAMLIT_SERVER_PORT
+            value: "8501"
+          - name: STREAMLIT_SERVER_ADDRESS
+            value: "0.0.0.0"
+    scale:
+      minReplicas: 1
+      maxReplicas: 3

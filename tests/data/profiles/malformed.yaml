@@ -1,0 +1,6 @@
+# Missing profile_id and version on purpose
+name: Malformed Profile
+metadata:
+  title: Bad Profile
+rules:
+  id: should_be_list_not_object

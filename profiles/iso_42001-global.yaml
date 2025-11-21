@@ -1,0 +1,203 @@
+profile_id: iso_42001-global
+version: "1.2.0"
+description: "ISO/IEC 42001 global baseline profile for LLM governance (test profile wired to full ruleset)."
+
+metadata:
+  title: "ISO 42001 – Global Baseline (4th.GRC)"
+  standards:
+    - "ISO/IEC 42001"
+    - "ISO/IEC 27001"
+  tags:
+    - "ai-governance"
+    - "risk"
+    - "baseline"
+    - "4th-grc"
+
+# Each entry here corresponds to a YAML file under rules/
+# (id == filename without .yaml)
+rules:
+  - id: bias_fairness          # rules/bias_fairness.yaml
+    weight: 0.06
+    tags: ["bias", "fairness"]
+
+  - id: transparency           # rules/transparency.yaml
+    weight: 0.06
+    tags: ["transparency", "documentation"]
+
+  - id: encryption             # rules/encryption.yaml
+    weight: 0.06
+    tags: ["security", "crypto"]
+
+  - id: pii                    # rules/pii.yaml
+    weight: 0.06
+    tags: ["privacy", "pii"]
+
+  - id: logging_audit          # rules/logging_audit.yaml
+    weight: 0.06
+    tags: ["logging", "audit"]
+
+  - id: rbac                   # rules/rbac.yaml
+    weight: 0.06
+    tags: ["access-control", "rbac"]
+
+  - id: model_allowlist        # rules/model_allowlist.yaml
+    weight: 0.06
+    tags: ["models", "allowlist"]
+
+  - id: tool_allowlist         # rules/tool_allowlist.yaml
+    weight: 0.06
+    tags: ["tools", "allowlist"]
+
+  - id: network_egress         # rules/network_egress.yaml
+    weight: 0.06
+    tags: ["network", "egress"]
+
+  - id: data_residency         # rules/data_residency.yaml
+    weight: 0.06
+    tags: ["data", "residency"]
+
+  - id: lifecycle              # rules/lifecycle.yaml
+    weight: 0.06
+    tags: ["lifecycle", "ml-ops"]
+
+  - id: change_management      # rules/change_management.yaml
+    weight: 0.06
+    tags: ["change", "release"]
+
+  - id: incident_response      # rules/incident_response.yaml
+    weight: 0.06
+    tags: ["incident", "response"]
+
+  - id: human_review           # rules/human_review.yaml
+    weight: 0.06
+    tags: ["oversight", "human-in-the-loop"]
+
+  - id: kpi_limits             # rules/kpi_limits.yaml
+    weight: 0.06
+    tags: ["kpi", "limits"]
+
+  - id: output_guardrails      # rules/output_guardrails.yaml
+    weight: 0.06
+    tags: ["guardrails", "content"]
+
+  - id: supplier_risk          # rules/supplier_risk.yaml
+    weight: 0.06
+    tags: ["third-parties", "supplier"]
+
+  - id: cost_budget            # rules/cost_budget.yaml
+    weight: 0.06
+    tags: ["cost", "budget"]
+
+  # You have 19 rule files; the above gives each ≈equal weight.
+  # Total weights ≈ 19 * 0.06 = 1.14; that's fine for now, or you can renormalize later.
+
+
+# Optional controls block – useful for UI / scorecards
+controls:
+  - control_id: bias_fairness
+    rule_ref: bias_fairness
+    title: "Bias & Fairness Mitigation"
+    description: "Ensure the system has documented and implemented bias mitigation measures."
+    weight: 0.06
+
+  - control_id: transparency
+    rule_ref: transparency
+    title: "Transparency & Documentation"
+    description: "Require documentation of system purpose, limitations, and risk disclosures."
+    weight: 0.06
+
+  - control_id: encryption
+    rule_ref: encryption
+    title: "Encryption Controls"
+    description: "Ensure data at rest and in transit are encrypted according to policy."
+    weight: 0.06
+
+  - control_id: pii
+    rule_ref: pii
+    title: "PII Protection"
+    description: "Ensure PII handling complies with privacy and security requirements."
+    weight: 0.06
+
+  - control_id: logging_audit
+    rule_ref: logging_audit
+    title: "Logging & Audit Trails"
+    description: "Capture sufficient audit logs for governance, risk, and compliance reporting."
+    weight: 0.06
+
+  - control_id: rbac
+    rule_ref: rbac
+    title: "Role-Based Access Control"
+    description: "Enforce least-privilege access to AI systems and data."
+    weight: 0.06
+
+  - control_id: model_allowlist
+    rule_ref: model_allowlist
+    title: "Model Allowlist"
+    description: "Restrict deployments to approved models and configurations."
+    weight: 0.06
+
+  - control_id: tool_allowlist
+    rule_ref: tool_allowlist
+    title: "Tool Allowlist"
+    description: "Control external tools and plugins that the agentic system can invoke."
+    weight: 0.06
+
+  - control_id: network_egress
+    rule_ref: network_egress
+    title: "Network Egress Controls"
+    description: "Restrict outbound network calls and destinations for AI workloads."
+    weight: 0.06
+
+  - control_id: data_residency
+    rule_ref: data_residency
+    title: "Data Residency"
+    description: "Ensure data stays within required jurisdictions and compliant locations."
+    weight: 0.06
+
+  - control_id: lifecycle
+    rule_ref: lifecycle
+    title: "Lifecycle Management"
+    description: "Track model lifecycle from design through decommissioning."
+    weight: 0.06
+
+  - control_id: change_management
+    rule_ref: change_management
+    title: "Change Management"
+    description: "Govern changes to models, prompts, and policies."
+    weight: 0.06
+
+  - control_id: incident_response
+    rule_ref: incident_response
+    title: "Incident Response"
+    description: "Monitor operations and maintain an incident response / escalation path."
+    weight: 0.06
+
+  - control_id: human_review
+    rule_ref: human_review
+    title: "Human Oversight"
+    description: "Ensure high-risk decisions include appropriate human review."
+    weight: 0.06
+
+  - control_id: kpi_limits
+    rule_ref: kpi_limits
+    title: "KPI Limits"
+    description: "Guard against incentive misalignment by bounding key performance indicators."
+    weight: 0.06
+
+  - control_id: output_guardrails
+    rule_ref: output_guardrails
+    title: "Output Guardrails"
+    description: "Enforce content policies and toxicity/safety constraints."
+    weight: 0.06
+
+  - control_id: supplier_risk
+    rule_ref: supplier_risk
+    title: "Supplier & Third-Party Risk"
+    description: "Assess and manage risks from external vendors and models."
+    weight: 0.06
+
+  - control_id: cost_budget
+    rule_ref: cost_budget
+    title: "Cost & Budget Controls"
+    description: "Monitor and cap AI usage costs across environments."
+    weight: 0.06

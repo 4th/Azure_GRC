@@ -1,0 +1,105 @@
+rule_id: tool_allowlist
+version: 1.0.0
+title: Tool/Plugin Allowlist
+description: Restrict agent tools/plugins to an allowlist; flag unknown or risky tools.
+engine_op: tools_allowlist_only
+metadata:
+  owner: Fourth Industrial Systems
+  category: governance
+  tags:
+  - allowlist
+  - tools
+  last_reviewed: '2025-11-11'
+inputs:
+  required_evidence:
+  - type: blob_uri
+    pattern: inventory/tools/*.json
+  params:
+    allowlist:
+    - retrieval
+    - calculator
+    - web_search
+    blocked:
+    - shell_exec
+    exception_tickets: []
+outputs:
+  pass_criteria: len(NONCOMPLIANT_TOOLS)==0
+  signals:
+  - NONCOMPLIANT_TOOLS
+  - TOTAL_TOOLS
+remediation:
+  playbook: tool_access_control@v1
+  guidance: Block at APIM/egress; document exceptions with approvals.
+rationale:
+  business_value: Reduces regulatory, ethical, and operational risk; improves trust
+    and audit readiness.
+  threats_mitigated:
+  - Regulatory non-compliance
+  - Data leakage
+  - Unfair outcomes
+  - Service disruptions
+severity_mapping:
+  pass:
+    severity: info
+    action: record
+  warn:
+    severity: medium
+    action: monitor_and_plan
+  fail:
+    severity: high
+    action: remediate_or_block
+scoring:
+  weight_default: 0.05
+  calculation: 1.0 for pass; 0.5 for warn; 0.0 for fail
+  aggregation: weighted_mean_across_controls
+exemptions:
+  allowed: true
+  policy: Temporary exemptions require risk acceptance and expiration date.
+  required_approvals:
+  - Product Owner
+  - GRC Lead
+  max_duration_days: 90
+  ticket_system: Jira
+audit:
+  record_fields:
+  - control_id
+  - rule_id
+  - status
+  - rationale
+  - signals
+  - evidence_refs
+  - timestamp
+  - actor
+  retention_days: 3650
+hitl:
+  enabled: true
+  channels:
+  - Teams
+  - Jira
+  sla_hours: 24
+  override_requires_reason: true
+alerts:
+  routes:
+  - email:grc@4th.is
+  - teams:#grc-alerts
+  dedup_window_minutes: 60
+evaluation:
+  logic_notes: Engine computes signals from evidence; evaluates pass_criteria; maps
+    to status; emits Finding with signals and remediation.
+  pseudocode:
+  - signals = compute_signals(evidence, params)
+  - status = evaluate(pass_criteria, signals, params)
+  - emit_finding(status, rationale, signals, remediation)
+evidence_schemas:
+  blob_uri.json:
+    hint: JSON array or object with fields referenced by the rule (see signals)
+  inline.json:
+    hint: Direct JSON payload provided by agent/evaluator
+examples:
+  good: All metrics within thresholds; complete artifacts; no violations found.
+  bad: Missing audit logs and TLS <1.2 on one endpoint; non-allowlisted model detected.
+risk_context:
+  impact: Dangerous tool usage by agents
+  likelihood: Medium
+signals_details:
+  NONCOMPLIANT_TOOLS: Tools not on the allowlist or explicitly blocked

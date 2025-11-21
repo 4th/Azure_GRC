@@ -1,0 +1,200 @@
+# =======================================================================
+#  policies/profiles/cobit_2019.yaml — COBIT 2019 Governance Overlay
+# -----------------------------------------------------------------------
+# Purpose
+#   Align agentic AI operations with COBIT 2019 governance system:
+#   - Governance domain (EDM): Evaluate, Direct, Monitor
+#   - Management domains: APO (Align, Plan, Organize), BAI (Build, Acquire, Implement),
+#                         DSS (Deliver, Service, Support), MEA (Monitor, Evaluate, Assess)
+#   Emphasizes decision rights, RACI, risk appetite, benefits realization,
+#   performance measurement, change & service governance, and assurance.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - This is a governance overlay; map to enterprise goals and design factors.
+# =======================================================================
+
+profile: COBIT_2019
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_34cd1cd0ef
+  # --- Governance system setup (EDM) ---
+  policy_enforcement_level: "strict"
+  governance_framework_defined: true
+  decision_rights_defined: true
+  raci_matrix_defined: true
+  risk_appetite_statement_defined: true
+  benefits_realization_plan_defined: true
+  performance_targets_defined: true
+  compliance_obligations_cataloged: true
+  assurance_plan_defined: true
+
+  # --- APO (Align, Plan, Organize) ---
+  enterprise_goals_mapped: true
+  information_architecture_defined: true
+  sourcing_strategy_defined: true
+  vendor_management_policy_defined: true
+  budget_cap_usd: 10000
+  cost_cap_usd: 9.00
+  capacity_planning_process_defined: true
+  skills_and_competencies_matrix_defined: true
+
+  # --- BAI (Build, Acquire, Implement) ---
+  project_lifecycle_defined: true
+  change_ticket_required: true
+  solution_acceptance_criteria_defined: true
+  secure_sdllc_in_place: true
+  code_review_required: true
+  release_management_controls_defined: true
+
+  # --- DSS (Deliver, Service, Support) ---
+  service_catalog_defined: true
+  sla_ola_defined: true
+  incident_problem_management_defined: true
+  request_fulfillment_defined: true
+  availability_target_pct: 99.5
+  capacity_monitoring_enabled: true
+
+  # --- MEA (Monitor, Evaluate, Assess) ---
+  kpi_kri_dashboard_enabled: true
+  internal_control_monitoring_enabled: true
+  compliance_monitoring_enabled: true
+  audit_findings_tracking_enabled: true
+  management_review_cadence_days: 90
+
+  # --- Risk & control overlays ---
+  risk_cap: 0.65
+  token_cap: 45000
+  latency_target_ms: 1800
+  error_rate_max: 0.03
+  bias_threshold: 0.15
+  explainability_score_min: 0.70
+  log_retention_days: 365
+  data_retention_days: 30
+
+  # --- Structured helpers ---
+  risk_bands: &risk_bands_482d50b9ba
+    low: {max: 0.40}
+    medium: {min: 0.40, max: 0.65}
+    high: {min: 0.65}
+
+  hil_policy: &hil_policy_a86153208c
+    require_for:
+    - "input.kpis.risk_score >= 0.40"
+    - "input.intent in ['change_release','bulk_export','delete_record','approve_vendor']"
+    - "input.args.get('cost_estimate_usd', 0) > params.get('budget_cap_usd', 0)"
+    approver_roles: ["service_owner", "risk_owner", "change_advisory_board"]
+    timeout_seconds: 900
+
+  severity_map: &severity_map_900a09a4b7
+    risk_appetite_exceeded: "high"
+    change_not_approved: "high"
+    vendor_not_approved: "high"
+    token_budget_exceeded: "moderate"
+    encryption_not_enforced: "critical"
+    transparency_missing: "moderate"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "enterprise_goal_ids"
+  - "risk_register_item_id"
+  - "cab_change_id"
+  - "vendor_record_id"
+
+  jurisdiction: "enterprise governance"
+  regulatory_scope: ["COBIT 2019"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_457e6a83fa
+  disclosure_banner: >
+    This system applies COBIT 2019 governance: decision rights, RACI, risk appetite,
+    benefits realization, performance monitoring, and service/change assurance.
+  escalation_contact: "governance@4th.is"
+  audit_profile_tag: "COBIT_2019"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_cb0ec923c6
+  edm_governance:
+    risk_appetite_statement_published: true
+    decision_rights_and_raci_approved: true
+    benefits_realization_plan_active: true
+    assurance_plan_in_place: true
+  apo_alignment:
+    enterprise_goals_mapped_to_services: true
+    information_architecture_current: true
+    sourcing_and_vendor_strategy_approved: true
+    budget_and_capacity_plans_approved: true
+  bai_build_change:
+    project_lifecycle_followed: true
+    change_control_enforced: true
+    acceptance_criteria_met: true
+    secure_sdlc_activities_completed: true
+  dss_service_support:
+    service_catalog_published: true
+    sla_ola_defined_and_tracked: true
+    incident_problem_request_processes_active: true
+  mea_monitoring:
+    kpi_kri_dashboard_reviewed: true
+    internal_controls_tested: true
+    compliance_monitoring_reports_issued: true
+    audit_findings_tracked_to_closure: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+cobit_2019_focus:
+  edm_evaluate_direct_monitor:
+  - "Set direction through prioritization and decision making; monitor performance and compliance"
+  apo_align_plan_organize:
+  - "Strategy, enterprise architecture, sourcing, vendor management, budgeting, skills"
+  bai_build_acquire_implement:
+  - "Projects, change, release, configuration, acceptance"
+  dss_deliver_service_support:
+  - "Operations, incidents, service levels, continuity"
+  mea_monitor_evaluate_assess:
+  - "Performance, internal control system, compliance, assurance"
+anchors:
+  risk_bands_482d50b9ba: *risk_bands_482d50b9ba
+  hil_policy_a86153208c: *hil_policy_a86153208c
+  severity_map_900a09a4b7: *severity_map_900a09a4b7
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_34cd1cd0ef: *params_34cd1cd0ef
+  obligations_457e6a83fa: *obligations_457e6a83fa
+  checklists_cb0ec923c6: *checklists_cb0ec923c6

@@ -1,0 +1,169 @@
+# =======================================================================
+#  policies/profiles/unesco_ethics.yaml — UNESCO Recommendation on the Ethics of AI
+# -----------------------------------------------------------------------
+# Purpose
+#   Align agent behavior with UNESCO's Ethics of AI principles, including
+#   human rights, dignity, environment and ecosystems, diversity & inclusion,
+#   transparency & explainability, safety & security, responsibility & accountability.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses rule modules from ../rules/*.yaml.
+#   - Parameters emphasize human rights safeguards, inclusion, sustainability,
+#     and accountability-by-design.
+# =======================================================================
+
+profile: UNESCO_ETHICS
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_f6acdb0c6a
+  # Governance & human rights
+  policy_enforcement_level: "strict"
+  human_review_required: true
+  human_rights_impact_required: true       # require HRIA for sensitive use cases
+  grievance_mechanism_required: true       # complaints/appeals channel
+  inclusiveness_checks_enabled: true       # check for language/ability bias
+
+  # Transparency & explainability
+  disclosure_required: true
+  explainability_score_min: 0.75
+  require_context_metadata: true
+  multilingual_access_supported: true
+  accessibility_guidelines_required: true
+
+  # Fairness & non-discrimination
+  bias_threshold: 0.15
+  fairness_review_required: true
+  sensitive_attribute_handling: "minimize" # minimize collection & use
+
+  # Safety, security & privacy
+  encryption_required: true
+  tls_min_version: "TLS1.2"
+  safety_filters_required: true
+  pii_allowed: false
+  dpa_required_for_processors: true
+  data_residency_region: "global"
+  cross_border_transfer: true              # allowed with lawful safeguards
+  data_retention_days: 30
+  log_retention_days: 180
+
+  # Sustainability & environment (operational proxies)
+  energy_usage_tracking_enabled: true      # capture model/compute energy proxies
+  carbon_intensity_limit_gco2_per_req: 20  # example budget proxy per request
+  prefer_green_regions: true               # prefer lower-carbon datacenters when feasible
+
+  # KPIs
+  risk_cap: 0.65
+  token_cap: 40000
+  cost_cap_usd: 8.00
+  latency_target_ms: 1800
+  error_rate_max: 0.03
+  availability_target_pct: 99.5
+
+  # Lifecycle & improvement
+  evaluation_interval_days: 30
+  retrain_cycle_days: 120
+  drift_detection_enabled: true
+  nonconformity_tracking_enabled: true
+
+  # Structured helpers
+  risk_bands: &risk_bands_482d50b9ba
+    low: {max: 0.40}
+    medium: {min: 0.40, max: 0.65}
+    high: {min: 0.65}
+  hil_policy: &hil_policy_ac805b75c6
+    require_for:
+    - "input.kpis.risk_score >= 0.40"
+    - "input.args.get('contains_pii', False) == True"
+    - "input.intent in ['approve_payment','bulk_export','delete_record']"
+    approver_roles: ["ethics_officer", "compliance_officer"]
+    timeout_seconds: 900
+  severity_map: &severity_map_9d10c95e9a
+    token_budget_exceeded: "moderate"
+    model_not_approved: "high"
+    pii_not_allowed_for_this_profile: "critical"
+    transparency_missing: "moderate"
+    encryption_not_enforced: "critical"
+    environmental_budget_exceeded: "moderate"
+
+  incident_thresholds: &incident_thresholds_62c1f4688e
+    consecutive_denies_for_user: {count: 3, window_minutes: 60}
+    high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+    budget_overshoot_pct: 10
+
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "result.allow"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "human_rights_impact_id"     # if an HRIA ticket was opened
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_9cc1c7bd6f
+  disclosure_banner: >
+    This system follows the UNESCO Recommendation on the Ethics of AI.
+    It emphasizes human rights, inclusion, transparency, safety,
+    accountability, and environmental responsibility.
+  escalation_contact: "unesco-ethics@4th.is"
+  audit_profile_tag: "UNESCO_ETHICS"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_f0411d0b93
+  human_rights_and_inclusion:
+    hria_completed_for_sensitive_use: true
+    grievance_mechanism_documented: true
+    multilingual_access_provided: true
+    accessibility_considerations: true
+  environmental_responsibility:
+    energy_usage_tracking_enabled: true
+    datacenter_region_reviewed_for_carbon: true
+
+# ----------------------- UNESCO crosswalk (informative) ------------------
+unesco_focus:
+  human_rights_and_dignity:
+  - "HRIA required for sensitive uses"
+  - "Privacy & data minimization"
+  living_in_peace_just_societies:
+  - "Non-discrimination, inclusion, accessibility"
+  environmental_and_ecosystem_florishing:
+  - "Energy tracking, green region preference"
+  transparency_and_explainability:
+  - "Disclosure, traceability, explainability minimums"
+  responsibility_and_accountability:
+  - "Decision logging, grievance mechanisms, oversight"
+anchors:
+  risk_bands_482d50b9ba: *risk_bands_482d50b9ba
+  hil_policy_ac805b75c6: *hil_policy_ac805b75c6
+  severity_map_9d10c95e9a: *severity_map_9d10c95e9a
+  incident_thresholds_62c1f4688e: *incident_thresholds_62c1f4688e
+  params_f6acdb0c6a: *params_f6acdb0c6a
+  obligations_9cc1c7bd6f: *obligations_9cc1c7bd6f
+  checklists_f0411d0b93: *checklists_f0411d0b93

@@ -1,0 +1,82 @@
+ name: Infra – Terraform Plan & Apply (dev)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "infra/terraform/**"
+      - ".github/workflows/infra_plan_apply.yml"
+      - "infra/pipelines/github-actions/infra_plan_apply.yml"
+  pull_request:
+    paths:
+      - "infra/terraform/**"
+  workflow_dispatch:
+
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  WORKING_DIR: infra/terraform/environments/dev
+  TF_VAR_environment: dev
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform-dev:
+    name: Terraform dev (plan/apply)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 🔐 Login to Azure using federated credentials (recommended)
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      # 📦 Set up Terraform
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+
+      # 📁 Change to environment working directory
+      - name: Change to dev environment directory
+        run: |
+          echo "Working dir: $WORKING_DIR"
+        working-directory: .
+
+      # 🧱 Terraform Init
+      - name: Terraform Init
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform init
+          # If you use remote state with backend config, you can instead do:
+          # terraform init \
+          #   -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
+          #   -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+          #   -backend-config="container_name=${{ secrets.TF_STATE_CONTAINER }}" \
+          #   -backend-config="key=${{ secrets.TF_STATE_KEY }}"
+
+      # 📐 Terraform Validate
+      - name: Terraform Validate
+        working-directory: ${{ env.WORKING_DIR }}
+        run: terraform validate
+
+      # 📝 Terraform Plan (always runs on PR + push)
+      - name: Terraform Plan (dev)
+        id: plan
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform plan -var-file="dev.tfvars" -out=tfplan
+
+      # ✅ Terraform Apply (only on push to main, not on PRs)
+      - name: Terraform Apply (dev)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        working-directory: ${{ env.WORKING_DIR }}
+        run: |
+          terraform apply -auto-approve tfplan

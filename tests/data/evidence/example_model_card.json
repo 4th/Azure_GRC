@@ -1,0 +1,7 @@
+{
+  "model_name": "demo-llm",
+  "version": "1.0.0",
+  "has_bias_mitigation": true,
+  "documented_risks": ["hallucination", "data_leakage"],
+  "owner": "Demo Owner"
+}

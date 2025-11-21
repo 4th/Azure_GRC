@@ -1,0 +1,305 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "4th.GRC PolicyEngine Service",
+    "version": "0.1.0",
+    "description": "HTTP API for evaluating AI/ML systems, workflows, and infrastructure configurations against 4th.GRC governance profiles and rule sets. Designed for use with Azure API Management, client SDK generation, and interactive documentation.",
+    "x-logo": {
+      "url": "https://4th.is/assets/4th_logo.png",
+      "altText": "Fourth Industrial Systems"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.4thgrc.example.com"
+    },
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Health check",
+        "operationId": "healthz",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/v1/evaluate": {
+      "post": {
+        "summary": "Evaluate policy profile",
+        "operationId": "evaluatePolicy",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvalRequest"
+              },
+              "examples": {
+                "basic": {
+                  "summary": "Minimal request",
+                  "value": {
+                    "request_id": "demo-001",
+                    "profile_ref": "iso_42001-global@1.2.0",
+                    "target": {
+                      "system_id": "demo"
+                    },
+                    "evidence": [],
+                    "params": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evaluation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvalResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Profile not found"
+          },
+          "500": {
+            "description": "Evaluation error"
+          }
+        },
+        "tags": [
+          "evaluation"
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Evidence": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "blob_uri",
+              "json",
+              "inline",
+              "purview"
+            ]
+          },
+          "uri": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "schema_hint": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "EvalRequest": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "profile_ref": {
+            "type": "string",
+            "description": "Format: <id>@<version>"
+          },
+          "controls": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "target": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            }
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "request_id",
+          "profile_ref",
+          "target"
+        ]
+      },
+      "Finding": {
+        "type": "object",
+        "properties": {
+          "control_id": {
+            "type": "string"
+          },
+          "rule_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "warn",
+              "error"
+            ]
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "signals": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "evidence_refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "remediation": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "control_id",
+          "rule_id",
+          "status",
+          "rationale"
+        ]
+      },
+      "Attestation": {
+        "type": "object",
+        "properties": {
+          "algo": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          },
+          "key_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "algo",
+          "signature",
+          "key_id"
+        ]
+      },
+      "EvalSummary": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "warn",
+              "error"
+            ]
+          },
+          "score": {
+            "type": "number",
+            "format": "float"
+          },
+          "totals": {
+            "type": "object",
+            "properties": {
+              "findings": {
+                "type": "integer"
+              },
+              "passes": {
+                "type": "integer"
+              },
+              "warns": {
+                "type": "integer"
+              },
+              "fails": {
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "required": [
+          "status",
+          "score"
+        ]
+      },
+      "EvalResponse": {
+        "type": "object",
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "profile_ref": {
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/EvalSummary"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            }
+          },
+          "attestations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attestation"
+            }
+          },
+          "telemetry_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "profile_ref",
+          "summary",
+          "findings"
+        ]
+      }
+    }
+  },
+  "x-ms-visibility": "public"
+}

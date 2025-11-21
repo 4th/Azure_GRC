@@ -1,0 +1,6 @@
+/* 4th.GRC Scorecard styles */
+.metric {padding: 8px 12px; border: 1px solid #EEE; border-radius: 8px; margin-bottom: 8px; background: #fafafa;}
+.metric-label {font-size: 0.85rem; color: #666;}
+.metric-value {font-size: 1.6rem; font-weight: 700;}
+/* Hide default Streamlit footer */
+footer {visibility: hidden;}

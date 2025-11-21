@@ -1,0 +1,105 @@
+rule_id: logging_audit
+version: 1.0.0
+title: Logging & Audit
+description: Require centralized audit logging with sufficient retention and source
+  coverage.
+engine_op: audit_log_required
+metadata:
+  owner: Fourth Industrial Systems
+  category: security
+  tags:
+  - logging
+  - audit
+  last_reviewed: '2025-11-11'
+inputs:
+  required_evidence:
+  - type: blob_uri
+    pattern: logs/audit/*.json
+  params:
+    retention_days_min: 180
+    required_sources:
+    - api
+    - model
+    - data
+    - auth
+outputs:
+  pass_criteria: RETENTION_DAYS >= retention_days_min and len(MISSING_LOG_SOURCES)==0
+  signals:
+  - RETENTION_DAYS
+  - MISSING_LOG_SOURCES
+remediation:
+  playbook: audit_log_enablement@v1
+  guidance: Enable ingestion for missing sources; extend retention policy.
+rationale:
+  business_value: Reduces regulatory, ethical, and operational risk; improves trust
+    and audit readiness.
+  threats_mitigated:
+  - Regulatory non-compliance
+  - Data leakage
+  - Unfair outcomes
+  - Service disruptions
+severity_mapping:
+  pass:
+    severity: info
+    action: record
+  warn:
+    severity: medium
+    action: monitor_and_plan
+  fail:
+    severity: high
+    action: remediate_or_block
+scoring:
+  weight_default: 0.05
+  calculation: 1.0 for pass; 0.5 for warn; 0.0 for fail
+  aggregation: weighted_mean_across_controls
+exemptions:
+  allowed: true
+  policy: Temporary exemptions require risk acceptance and expiration date.
+  required_approvals:
+  - Product Owner
+  - GRC Lead
+  max_duration_days: 90
+  ticket_system: Jira
+audit:
+  record_fields:
+  - control_id
+  - rule_id
+  - status
+  - rationale
+  - signals
+  - evidence_refs
+  - timestamp
+  - actor
+  retention_days: 3650
+hitl:
+  enabled: true
+  channels:
+  - Teams
+  - Jira
+  sla_hours: 24
+  override_requires_reason: true
+alerts:
+  routes:
+  - email:grc@4th.is
+  - teams:#grc-alerts
+  dedup_window_minutes: 60
+evaluation:
+  logic_notes: Engine computes signals from evidence; evaluates pass_criteria; maps
+    to status; emits Finding with signals and remediation.
+  pseudocode:
+  - signals = compute_signals(evidence, params)
+  - status = evaluate(pass_criteria, signals, params)
+  - emit_finding(status, rationale, signals, remediation)
+evidence_schemas:
+  blob_uri.json:
+    hint: JSON array or object with fields referenced by the rule (see signals)
+  inline.json:
+    hint: Direct JSON payload provided by agent/evaluator
+examples:
+  good: All metrics within thresholds; complete artifacts; no violations found.
+  bad: Missing audit logs and TLS <1.2 on one endpoint; non-allowlisted model detected.
+risk_context:
+  impact: Forensics impossible; compliance failures
+  likelihood: Medium
+signals_details:
+  MISSING_LOG_SOURCES: Sources not ingested into SIEM

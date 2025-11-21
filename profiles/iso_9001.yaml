@@ -1,0 +1,225 @@
+# =======================================================================
+#  policies/profiles/iso_9001.yaml — ISO 9001 Quality Mgmt Gates (AI/ML)
+# -----------------------------------------------------------------------
+# Purpose
+#   Operational overlay for ISO 9001:2015 within an Agentic AI environment.
+#   Emphasizes: QMS governance, document & record control, competence,
+#   design & development controls, verification/validation, change control,
+#   supplier quality, nonconformity & CAPA, internal audits, and management review.
+#
+# Notes
+#   - EXTENDS ../base.yaml (global defaults).
+#   - Reuses common rule modules from ../rules/*.yaml.
+#   - Tune gates & acceptance criteria per your QMS procedures.
+# =======================================================================
+
+profile: ISO_9001
+extends: ../base.yaml
+
+includes:
+- ../rules/rbac.yaml
+- ../rules/tool_allowlist.yaml
+- ../rules/model_allowlist.yaml
+- ../rules/kpi_limits.yaml
+- ../rules/cost_budget.yaml
+- ../rules/pii.yaml
+- ../rules/data_residency.yaml
+- ../rules/encryption.yaml
+- ../rules/network_egress.yaml
+- ../rules/transparency.yaml
+- ../rules/human_review.yaml
+- ../rules/bias_fairness.yaml
+- ../rules/output_guardrails.yaml
+- ../rules/logging_audit.yaml
+- ../rules/incident_response.yaml
+- ../rules/change_management.yaml
+- ../rules/supplier_risk.yaml
+- ../rules/lifecycle.yaml
+
+# ------------------------------ Parameters ------------------------------
+params: &params_0db40e724a
+  # --- QMS & Leadership ---
+  policy_enforcement_level: "strict"
+  qms_scope_defined: true
+  quality_policy_published: true
+  quality_objectives_defined: true
+  roles_responsibilities_defined: true
+  management_review_cadence_days: 90
+
+  # --- Document & Record Control ---
+  document_control_required: true
+  record_control_required: true
+  sop_versioning_required: true
+  template_control_required: true
+  retention_schedule_defined: true
+
+  # --- Competence, Awareness, Training ---
+  competence_matrix_defined: true
+  training_plan_required_for_roles: true
+  training_records_required: true
+  awareness_program_active: true
+
+  # --- Design & Development (AI models & services) ---
+  design_and_development_planned: true
+  design_inputs_defined: true
+  design_outputs_defined: true
+  design_reviews_required: true
+  design_verification_required: true
+  design_validation_required: true
+  change_ticket_required: true
+  acceptance_criteria_defined: true
+  risk_based_thinking_applied: true
+
+  # --- Supplier Quality & Procurement ---
+  supplier_qualification_required: true
+  approved_supplier_list_required: true
+  incoming_quality_checks_defined: true
+  vendor_slm_metrics_tracked: true
+
+  # --- Nonconformity & CAPA ---
+  nonconformity_process_defined: true
+  capa_process_defined: true
+  root_cause_method_defined: true
+  effectiveness_check_required: true
+
+  # --- Measurement, Analysis & Improvement ---
+  kpi_dashboard_enabled: true
+  internal_audit_program_defined: true
+  audit_findings_tracking_enabled: true
+  customer_feedback_process_defined: true
+  corrective_actions_prioritized: true
+
+  # --- Operational thresholds (generic) ---
+  risk_cap: 0.60
+  token_cap: 40000
+  cost_cap_usd: 8.00
+  latency_target_ms: 1800
+  error_rate_max: 0.03
+  log_retention_days: 365
+  data_retention_days: 30
+
+  # --- Product/Service realization gates (example) ---
+  dd_gates:
+    G1: "design_inputs_approved"
+    G2: "architecture_review_passed"
+    G3: "verification_completed"
+    G4: "validation_completed"
+    G5: "release_readiness_approved"
+
+  # --- Evidence fields tied to QMS ---
+  evidence_fields:
+  - "trace_id"
+  - "policy_version"
+  - "profile"
+  - "input.intent"
+  - "input.user.role"
+  - "input.model.id"
+  - "input.context.domain"
+  - "result.allow"
+  - "result.risk_level"
+  - "result.deny_reasons"
+  - "result.obligations"
+  - "doc_control_record_id"
+  - "training_record_id"
+  - "design_review_record_id"
+  - "verification_record_id"
+  - "validation_record_id"
+  - "change_request_id"
+  - "supplier_record_id"
+  - "nonconformity_record_id"
+  - "capa_record_id"
+  - "audit_finding_id"
+  - "management_review_id"
+
+  jurisdiction: "enterprise quality management"
+  regulatory_scope: ["ISO 9001:2015"]
+
+# ----------------------------- Obligations ------------------------------
+obligations: &obligations_434d680f96
+  disclosure_banner: >
+    This system enforces ISO 9001-aligned quality gates: document/record control,
+    competence/training, design reviews, verification/validation, supplier quality,
+    nonconformity & CAPA, internal audits, and management review.
+  escalation_contact: "quality@4th.is"
+  audit_profile_tag: "ISO_9001"
+  max_tokens: 1800
+  max_output_chars: 7000
+
+# ----------------------------- HIL & Severity ---------------------------
+hil_policy: &hil_policy_a300c3fe6e
+  require_for:
+  - "input.intent in ['change_release','production_deploy','approve_supplier']"
+  - "input.kpis.risk_score >= 0.40"
+  - "input.context.get('dd_gate') in ['G3','G4','G5']"
+  approver_roles: ["quality_manager", "service_owner", "change_advisory_board"]
+  timeout_seconds: 900
+
+severity_map: &severity_map_fabf1aa6b4
+  document_control_missing: "high"
+  design_review_missing: "high"
+  verification_missing: "high"
+  validation_missing: "high"
+  capa_effectiveness_missing: "moderate"
+  supplier_not_qualified: "high"
+  transparency_missing: "moderate"
+  encryption_not_enforced: "critical"
+
+incident_thresholds: &incident_thresholds_821349af46
+  consecutive_denies_for_user: {count: 3, window_minutes: 60}
+  high_risk_decisions_per_hour: {count: 5, window_minutes: 60}
+  budget_overshoot_pct: 10
+
+# ----------------------------- Checklists --------------------------------
+checklists: &checklists_87369da417
+  qms_fundamentals:
+    scope_defined: true
+    quality_policy_published: true
+    objectives_smart_defined: true
+    roles_and_responsibilities_approved: true
+  document_and_record_control:
+    sop_versioning_in_place: true
+    templates_controlled: true
+    retention_schedule_applied: true
+  competence_and_training:
+    competence_matrix_current: true
+    training_plan_active: true
+    training_records_maintained: true
+  design_and_development:
+    design_inputs_outputs_documented: true
+    design_reviews_held: true
+    verification_protocols_executed: true
+    validation_protocols_executed: true
+    change_control_followed: true
+  supplier_quality:
+    supplier_qualification_completed: true
+    asl_maintained: true
+    incoming_quality_checks_performed: true
+  nonconformity_and_capa:
+    nonconformity_logged_and_triaged: true
+    root_cause_analysis_completed: true
+    capa_actions_implemented: true
+    effectiveness_checks_documented: true
+  audits_and_reviews:
+    internal_audit_program_active: true
+    audit_findings_tracked_to_closure: true
+    management_review_held_on_cadence: true
+
+# ----------------------------- Crosswalk (informative) ------------------
+iso_9001_focus:
+  leadership_and_planning:
+  - "Quality policy, objectives, roles, risk-based thinking"
+  support:
+  - "Competence, awareness, documented information (control)"
+  operation:
+  - "Design & development control, change control, supplier mgmt"
+  performance_evaluation:
+  - "Monitoring, measurement, internal audit, management review"
+  improvement:
+  - "Nonconformity & corrective actions (CAPA), continual improvement"
+anchors:
+  params_0db40e724a: *params_0db40e724a
+  obligations_434d680f96: *obligations_434d680f96
+  hil_policy_a300c3fe6e: *hil_policy_a300c3fe6e
+  severity_map_fabf1aa6b4: *severity_map_fabf1aa6b4
+  incident_thresholds_821349af46: *incident_thresholds_821349af46
+  checklists_87369da417: *checklists_87369da417

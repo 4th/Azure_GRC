@@ -1,0 +1,98 @@
+# ===========================================================
+#  Base Policy Defaults — Agentic AI Governance Framework
+#  Purpose: Shared defaults all compliance profiles inherit.
+#  Usage: Profiles (e.g., nist_rmf-us.yaml) set `extends: ../base.yaml`
+#         and may override any `params` or add more `obligations`.
+#  Change control: Update via PR; bump `metadata.profile_version`.
+# ===========================================================
+
+metadata:
+  # A friendly name for this baseline profile
+  profile_name: base
+  # SemVer for configuration; use to correlate decisions with config version
+  profile_version: 1.0.0
+  # Who maintains this baseline
+  maintainer: "Fourth Industrial Systems (4th)"
+  # ISO 8601 date string for last update
+  last_updated: "2025-11-09"
+
+params:
+  # ---------------- AI Governance defaults -----------------
+  # Always disclose AI assistance to end users (set false only for internal tools)
+  disclosure_required: true
+  # Require manual review for actions classified as high-risk (default false; profiles can enable)
+  human_review_required: false
+  # Enforcement strictness at runtime: strict | moderate | permissive
+  policy_enforcement_level: "strict"
+  # Block models that are not on an approved allowlist
+  allow_experimental_models: false
+
+  # ---------------- Risk thresholds (defaults) --------------
+  # Max acceptable composite risk score (0..1). Profiles can tighten this.
+  risk_cap: 0.70
+  # Bias score threshold (0..1) beyond which mitigation is required/deny
+  bias_threshold: 0.20
+  # Minimum explainability score for outputs (0..1)
+  explainability_score_min: 0.65
+
+  # ---------------- Operational KPI caps -------------------
+  # Daily token usage cap per agent (used for budget/rate-limiting)
+  token_cap: 50000
+  # Daily operating cost cap in USD (approx; depends on provider rates)
+  cost_cap_usd: 10.00
+  # Target P95 response time in milliseconds
+  latency_target_ms: 2000
+  # Expected monthly uptime percentage
+  availability_target_pct: 99.5
+
+  # ---------------- Data protection defaults ----------------
+  # Whether processing PII/PHI is allowed in this baseline (usually false)
+  pii_allowed: false
+  # Default retention for transient working data (days)
+  data_retention_days: 30
+  # Require TLS and storage encryption for any persisted artifacts
+  encryption_required: true
+  # Retain decision/audit logs at least this many days
+  log_retention_days: 90
+  # Disallow cross-border transfers unless a profile enables it (e.g., GDPR SCCs)
+  cross_border_transfer: false
+
+  # ---------------- Audit / logging defaults ----------------
+  # Emit structured allow/deny decisions for SIEM
+  enable_decision_logging: true
+  # Log output format (json|text); json recommended for SIEM queries
+  decision_log_format: "json"
+  # Include a trace_id in every decision to correlate with app logs
+  include_trace_id: true
+  # Require that high-risk actions attach evidence (inputs, checksums, model id)
+  evidence_required: true
+
+  # ---------------- Lifecycle management -------------------
+  # Days between scheduled (re)training cycles (if applicable)
+  retrain_cycle_days: 90
+  # Days between model/prompt evaluation checkpoints
+  evaluation_interval_days: 30
+  # Enable drift detection checks against baselines
+  drift_detection_enabled: true
+
+  # ---------------- Regional / legal context ----------------
+  # Default jurisdiction label for this baseline (profiles override)
+  jurisdiction: "global"
+  # Which frameworks this baseline roughly aligns with (informational)
+  regulatory_scope: ["NIST AI RMF", "ISO/IEC 42001", "GDPR"]
+
+obligations:
+  # Message to present (or log) when disclosure is required
+  disclosure_banner: >
+    This system uses Agentic AI components governed by policy. Outputs are
+    monitored for trustworthiness, fairness, and accountability.
+  # Where to route incidents or required approvals
+  escalation_contact: "compliance@4th.is"
+  # Default target for decision logs (your pipeline can route accordingly)
+  audit_log_target: "AzureMonitor"
+
+notes:
+  - "All profiles extend this base; do NOT hard-code secrets here."
+  - "Parameters are read by the PolicyLoader and can be referenced in rules (e.g., params.risk_cap)."
+  - "Keep under version control (Git) and review with change tickets."
+  - "Tune thresholds in profile YAMLs (e.g., HIPAA, GDPR, FedRAMP overlays)."

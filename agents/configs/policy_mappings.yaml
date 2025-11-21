@@ -1,0 +1,72 @@
+# 4th.GRC – Policy Mappings
+# Map business use cases and system types to PolicyEngine profile references.
+#
+# This allows planners and agents to select the right governance profile
+# WITHOUT hardcoding profile IDs in code.
+
+meta:
+  version: "0.1.0"
+  owner: "Fourth Industrial Systems"
+  description: "Declarative mapping of use cases to PolicyEngine profiles."
+
+use_cases:
+  # Generic LLM agent used for chat, summarization, Q&A, etc.
+  llm_agent_general:
+    profile_ref: "iso_42001-global@1.2.0"
+    notes: "Baseline ISO 42001 AI management profile for general-purpose LLM agents."
+
+  # Internal-only AI tools (e.g., code assistants, doc search) used by employees.
+  internal_ai_tooling:
+    profile_ref: "soc2_llm_internal@1.0.0"
+    notes: "SOC 2–aligned profile for internal AI systems and dev tools."
+
+  # Clinical decision support / medical-style workflows (your CDS-GPT work).
+  medical_cds:
+    profile_ref: "nist_ai_rmfx_medical@0.1.0"
+    notes: "NIST AI RMF–aligned profile with additional healthcare constraints."
+
+  # Public-facing chatbots / virtual assistants on websites or customer channels.
+  public_chatbot:
+    profile_ref: "iso_42001-global@1.2.0"
+    notes: "ISO 42001 baseline with stricter HITL rules applied in settings.yaml."
+
+  # High-risk decision support (e.g., credit, housing, employment).
+  high_risk_decision_support:
+    profile_ref: "iso_42001-highrisk@1.0.0"
+    notes: "Stricter profile for high-impact decisions; may require HITL by default."
+
+system_types:
+  # Batch scoring pipeline (e.g., offline risk scoring, batch summaries).
+  batch_pipeline:
+    profile_ref: "iso_42001-global@1.2.0"
+    notes: "Batch systems using LLMs/Data science models."
+
+  # Real-time APIs surfacing LLM responses directly.
+  realtime_api:
+    profile_ref: "iso_42001-global@1.2.0"
+    notes: "Real-time HTTP APIs integrating LLMs with user-facing applications."
+
+  # Experimental sandboxes / labs (reduced obligations, but still tracked).
+  experimental_sandbox:
+    profile_ref: "iso_42001-experimental@0.1.0"
+    notes: "Exploration-only environments with relaxed policies but strong logging."
+
+overrides:
+  # Optional explicit overrides:
+  # If both use_case and system_type are provided, an override can pin
+  # to a more specific profile.
+  #
+  # Example:
+  #   use_case=medical_cds + system_type=realtime_api
+  #   → nist_ai_rmfx_medical_realtime@0.2.0
+  - match:
+      use_case: "medical_cds"
+      system_type: "realtime_api"
+    profile_ref: "nist_ai_rmfx_medical_realtime@0.2.0"
+    notes: "Stricter profile for real-time clinical decision support."
+
+  - match:
+      use_case: "high_risk_decision_support"
+      system_type: "batch_pipeline"
+    profile_ref: "iso_42001-highrisk_batch@1.0.0"
+    notes: "Batch processing of high-risk decisions with heightened logging/audit."
