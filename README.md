@@ -34,17 +34,17 @@ It produces **scorecards**, **system cards**, and **audit-ready artifacts** desi
 # 🧩 Platform Architecture
 
 ```
-+--------------------------------------------------------------+
-|                        4th.GRC Platform                       |
-+--------------------------------------------------------------+
- |                         |                               |
- | PolicyEngine (API)      | Agent Layer                   | Scorecard App
- | FastAPI Microservice    | SK / LangGraph Agents         | Streamlit UI
++--------------------------------------------------------------------------------+
+|                        4th.GRC Platform                                        |
++--------------------------------------------------------------------------------+
+ |                         |                               |                     |
+ | PolicyEngine (API)      | Agent Layer                   | Scorecard App       |
+ | FastAPI Microservice    | SK / LangGraph Agents         | Streamlit UI        |
  |-------------------------|-------------------------------|---------------------|
  | - Profile loader        | - Evidence gathering agents   | - Dashboards        |
  | - Rule evaluator        | - Reasoning / planning        | - Cosmos analytics  |
  | - Score calculator      | - PolicyEngine integration    | - Historical trends |
- +--------------------------------------------------------------+
+ +-------------------------------------------------------------------------------+
 ```
 
 ---
