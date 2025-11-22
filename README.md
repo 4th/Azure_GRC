@@ -34,9 +34,9 @@ It produces **scorecards**, **system cards**, and **audit-ready artifacts** desi
 # 🧩 Platform Architecture
 
 ```
-+--------------------------------------------------------------------------------+
-|                        4th.GRC Platform                                        |
-+--------------------------------------------------------------------------------+
+ +-------------------------------------------------------------------------------+
+ |                        4th.GRC Platform                                       |
+ +-------------------------------------------------------------------------------+
  |                         |                               |                     |
  | PolicyEngine (API)      | Agent Layer                   | Scorecard App       |
  | FastAPI Microservice    | SK / LangGraph Agents         | Streamlit UI        |
